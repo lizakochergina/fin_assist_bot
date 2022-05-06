@@ -8,12 +8,12 @@ from datetime import datetime
 from telebot import types
 from helpers import *
 
-TELEGRAM_TOKEN = ''
+TELEGRAM_TOKEN = '5253964491:AAFwpT6lsqLN5MN6Y8Nwkp2lQ-f-GlnKI3I'
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN, parse_mode=None)
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-SERVICE_ACCOUNT_FILE = ''
+SERVICE_ACCOUNT_FILE = '../secrets/finassistproject-4c3daffd861a.json'
 creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 sheet_service = googleapiclient.discovery.build('sheets', 'v4', credentials=creds)
 drive_service = googleapiclient.discovery.build('drive', 'v3', credentials=creds)
@@ -305,9 +305,19 @@ class TableManager:
             return False
 
 
+class Subscription:
+    date = 0
+    cost = 0
+
+    def __init__(self, date, cost):
+        self.date = date
+        self.cost = cost
+
+
 class UserInfo:
     mail = ''
-    state = -1  # 1 - wait for email,   2 - get expences, 3 - add category, 4 - del category
+    state = -1  # 1 - wait for email,   2 - get expences, 3 - add category, 4 - del category, 5 - set main acc,
+    # 6 - add new acc, 7 - del acc, 8 - add sub, 9 - del sub
     sheet_link = ''
     spreadsheet_id = 0
     perm_id = 0
@@ -316,6 +326,7 @@ class UserInfo:
     key_words = {'кофе': 'кафе'}
     accounts = {'тиньк', 'сбер'}
     main_account = 'тиньк'
+    subscriptions = {}
     table_manager = TableManager()
     send_for_verific = True
 
@@ -356,10 +367,14 @@ def send_welcome(message):
         users_table[message.chat.id].set_state(2)  # wait for expences
         # next logic ??
     else:
-        bot.send_message(message.chat.id,
-                         "Привет! Сейчас я создам тебе таблицу. Для этого мне нужно, чтобы ты прислал свою gmail почту.")
+        # bot.send_message(message.chat.id,
+        #                "Привет! Сейчас я создам тебе таблицу. Для этого мне нужно, чтобы ты прислал свою gmail почту.")
+        # users_table[message.chat.id] = UserInfo()
+        # users_table[message.chat.id].set_state(1)
+
+        bot.send_message(message.chat.id, 'go')
         users_table[message.chat.id] = UserInfo()
-        users_table[message.chat.id].set_state(1)
+        users_table[message.chat.id].set_state(2)
 
 
 @bot.message_handler(commands=['reset'])
@@ -373,6 +388,7 @@ def reset(message):
 @bot.message_handler(
     func=lambda message: message.chat.id in users_table and users_table[message.chat.id].state == 1)
 def getting_email(message):
+    print('creating spredsheet')
     last_index = message.text.find('@gmail.com')
     if last_index == -1 or last_index == 0 or last_index != len(message.text) - len('@gmail.com'):
         bot.send_message(message.chat.id, 'почта некорректная, попробуй еще раз')
@@ -407,16 +423,52 @@ def categories_settings(message):
                      reply_markup=types.InlineKeyboardMarkup(keyboard))
 
 
-@bot.callback_query_handler(func=lambda call: call.data in ['watch_categ', 'add_categ', 'del_categ'])
+@bot.message_handler(commands=['subscriptions'])
+def subscribes(message):
+    keyboard = [
+        [
+            types.InlineKeyboardButton("посмотреть подписки", callback_data='watch_sub'),
+        ],
+        [
+            types.InlineKeyboardButton('добавить подписку', callback_data='add_sub')
+        ],
+        [
+            types.InlineKeyboardButton("удалить подписку", callback_data='del_sub')
+        ]
+    ]
+
+    bot.send_message(message.chat.id, 'выбери, что ты хочешь сделать',
+                     reply_markup=types.InlineKeyboardMarkup(keyboard))
+
+
+@bot.message_handler(commands=['accounts'])
+def categories_settings(message):
+    keyboard = [
+        [
+            types.InlineKeyboardButton("посмотреть счета", callback_data='watch_acc'),
+        ],
+        [
+            types.InlineKeyboardButton("установить основной счет", callback_data='set_main_acc')
+        ],
+        [
+            types.InlineKeyboardButton("добавить счета", callback_data='add_acc')
+        ],
+        [
+            types.InlineKeyboardButton("удалить счета", callback_data='del_acc')
+        ]
+    ]
+
+    bot.send_message(message.chat.id, 'выбери, что ты хочешь сделать',
+                     reply_markup=types.InlineKeyboardMarkup(keyboard))
+
+
+@bot.callback_query_handler(func=lambda call: call.data in ['watch_categ', 'add_categ', 'del_categ', 'watch_acc',
+                                                            'set_main_acc', 'add_acc', 'del_acc', 'watch_sub',
+                                                            'add_sub', 'del_sub'])
 def test_callback(call):
     print('got callback')
     print('data ' + call.data)
-    if call.data == 'watch_categ':
-        watch_categ(call, users_table, bot)
-    elif call.data == 'add_categ':
-        add_categ(call, users_table, bot)
-    elif call.data == 'del_categ':
-        del_categ(call, users_table, bot)
+    callback_funcs[call.data](call.message.chat.id, users_table[call.message.chat.id], bot)
 
 
 @bot.message_handler(func=lambda message: message.chat.id in users_table and users_table[message.chat.id].state == 2)
@@ -426,7 +478,7 @@ def get_expence(message):
     print("\titems: ", end='')
     print(message.text.split())
 
-    income, sum, category, account, comment = format_expence(message.text, message.chat.id)
+    income, sum, category, account, comment = format_expence(message.text, message.chat.id, users_table)
     if sum == False:
         bot.send_message(message.chat.id, 'некорректные данные')
         return
@@ -479,7 +531,7 @@ def adding_category(message):
 
 @bot.message_handler(
     func=lambda message: message.chat.id in users_table and users_table[message.chat.id].state == 4)
-def adding_category(message):
+def deleting_category(message):
     items = [item.strip() for item in message.text.split(',')]
     print(message.text)
     print(items)
@@ -493,6 +545,86 @@ def adding_category(message):
             users_table[message.chat.id].key_words.pop(item)
             users_table[message.chat.id].categories[category].remove(item)
     users_table[message.chat.id].set_state(2)
+
+
+@bot.message_handler(func=lambda message: message.chat.id in users_table
+                                          and users_table[message.chat.id].state == 5)
+def setting_main_acc(message):
+    acc = message.text.strip()
+    if acc not in users_table[message.chat.id].accounts:
+        users_table[message.chat.id].accounts.add(acc)
+    users_table[message.chat.id].main_account = acc
+    users_table[message.chat.id].set_state(2)
+
+
+@bot.message_handler(func=lambda message: message.chat.id in users_table
+                                          and users_table[message.chat.id].state == 6)
+def addind_acc(message):
+    items = [item.strip() for item in message.text.split(',')]
+    for item in items:
+        users_table[message.chat.id].accounts.add(item)
+    users_table[message.chat.id].set_state(2)
+
+
+@bot.message_handler(func=lambda message: message.chat.id in users_table
+                                          and users_table[message.chat.id].state == 7)
+def deliting_acc(message):
+    items = [item.strip() for item in message.text.split(',')]
+    for item in items:
+        if item == users_table[message.chat.id].main_account:
+            users_table[message.chat.id].main_account = ''
+        users_table[message.chat.id].accounts.remove(item)
+
+    if users_table[message.chat.id].main_account == '':
+        bot.send_message(message.chat.id,
+                         'ты удалил основной счет. пожалуйста, установи новый основной счет')
+        callback_funcs['set_main_acc'](message.chat.id, users_table[call.message.chat.id], bot)
+    else:
+        users_table[message.chat.id].set_state(2)
+
+
+@bot.message_handler(func=lambda message: message.chat.id in users_table
+                                          and users_table[message.chat.id].state == 8)
+def adding_sub(message):
+    items = message.text.split(',')
+    for item in items:
+        sub = item.split()
+        today = datetime.today()
+        new_day = int(sub[0])
+        print('day ' + sub[0])
+        print('today ' + str(today.day))
+        if new_day < today.day:
+            new_year = today.year + today.month // 12
+            new_month = (today.month % 12) + 1
+            today = today.replace(day=new_day, month=new_month, year=new_year)
+        else:
+            today = today.replace(day=new_day)
+        print('new date ' + today.strftime('%d.%m.%Y'))
+        print(today.day, today.month, today.year)
+        name = ' '.join(sub[2:]).strip()
+        print('new sub: ' + '\'' + name + '\'  ' + today.strftime('%d.%m.%Y') + '  ' + sub[1])
+        users_table[message.chat.id].subscriptions[name] = Subscription(today, int(sub[1]))
+    users_table[message.chat.id].set_state(2)
+
+
+@bot.message_handler(func=lambda message: message.chat.id in users_table
+                                          and users_table[message.chat.id].state == 9)
+def deliting_sub(message):
+    items = [item.strip() for item in message.text.split(',')]
+    if items[0] == 'отменить действие':
+        users_table[message.chat.id].set_state(2)
+    else:
+        not_found = ''
+        for item in items:
+            if item in users_table[message.chat.id].subscriptions.keys():
+                users_table[message.chat.id].subscriptions.pop(item)
+            else:
+                not_found += ' - ' + item + '\n'
+        if not_found != '':
+            bot.send_message(message.chat.id,
+                             'следующие подписки не были найдены:\n' + not_found)
+        users_table[message.chat.id].set_state(2)
+    print('deleted subs')
 
 
 bot.infinity_polling()
