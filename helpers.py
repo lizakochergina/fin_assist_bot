@@ -138,7 +138,7 @@ def format_expence(text, chat_id, users_table):  # ret (income/outcome, sum, cat
             print("cant define category")
             return (False, False, False, False, False)
         category += items[i]
-        ++i
+        i += 1
     if category in users_table[chat_id].key_words.keys():
         category = users_table[chat_id].key_words[category] + ", " + category
 

@@ -2,18 +2,13 @@ import os
 import telebot
 from google.oauth2 import service_account
 import googleapiclient.discovery
-import pprint
-import json
 from datetime import datetime
-from telebot import types
 from helpers import *
 
-TELEGRAM_TOKEN = '5253964491:AAFwpT6lsqLN5MN6Y8Nwkp2lQ-f-GlnKI3I'
-
-bot = telebot.TeleBot(TELEGRAM_TOKEN, parse_mode=None)
+bot = telebot.TeleBot(os.getenv('TELEGRAM_TOKEN'), parse_mode=None)
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-SERVICE_ACCOUNT_FILE = '../secrets/finassistproject-4c3daffd861a.json'
+SERVICE_ACCOUNT_FILE = 'sheets_key/finassistproject-4c3daffd861a.json'
 creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 sheet_service = googleapiclient.discovery.build('sheets', 'v4', credentials=creds)
 drive_service = googleapiclient.discovery.build('drive', 'v3', credentials=creds)
@@ -48,7 +43,7 @@ class TableManager:
                     ]
                 }
             ]
-        }).execute();
+        }).execute()
 
         try:
             sheet_service.spreadsheets().batchUpdate(spreadsheetId=self.spreadsheet_id, body={
@@ -275,7 +270,7 @@ class TableManager:
                         ]
                     }
                 ]
-            }).execute();
+            }).execute()
             self.last_row_expences += 1
             return True
         except BaseException as e:
@@ -296,7 +291,7 @@ class TableManager:
                         ]
                     }
                 ]
-            }).execute();
+            }).execute()
             self.last_row_income += 1
             return True
         except BaseException as e:
@@ -479,7 +474,7 @@ def get_expence(message):
     print(message.text.split())
 
     income, sum, category, account, comment = format_expence(message.text, message.chat.id, users_table)
-    if sum == False:
+    if not sum:
         bot.send_message(message.chat.id, 'некорректные данные')
         return
 
@@ -547,8 +542,8 @@ def deleting_category(message):
     users_table[message.chat.id].set_state(2)
 
 
-@bot.message_handler(func=lambda message: message.chat.id in users_table
-                                          and users_table[message.chat.id].state == 5)
+@bot.message_handler(func=lambda message: message.chat.id in users_table and
+                                          users_table[message.chat.id].state == 5)
 def setting_main_acc(message):
     acc = message.text.strip()
     if acc not in users_table[message.chat.id].accounts:
@@ -578,7 +573,7 @@ def deliting_acc(message):
     if users_table[message.chat.id].main_account == '':
         bot.send_message(message.chat.id,
                          'ты удалил основной счет. пожалуйста, установи новый основной счет')
-        callback_funcs['set_main_acc'](message.chat.id, users_table[call.message.chat.id], bot)
+        callback_funcs['set_main_acc'](message.chat.id, users_table[message.chat.id], bot)
     else:
         users_table[message.chat.id].set_state(2)
 
