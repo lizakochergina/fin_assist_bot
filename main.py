@@ -15,12 +15,10 @@ def send_welcome(message):
     print('cur id ' + s_id)
     print(users_data.table)
     if s_id in users_data.table.keys():
-        bot.send_message(message.chat.id,
-                         "у нас уже есть таблица для тебя\n" + users_data.table[s_id]['sheet_link'])
+        bot.send_message(message.chat.id, "у нас уже есть таблица для тебя\n" + users_data.table[s_id]['sheet_link'])
         users_data.table[s_id]['state'] = 2  # wait for expences
     else:
-        bot.send_message(message.chat.id,
-                         "Привет! Сейчас я создам тебе таблицу. Для этого мне нужно, чтобы ты прислал свою gmail почту.")
+        bot.send_message(message.chat.id, "привет! для создания таблицы пришли, пожалуйста, свою gmail почту")
         users_data.table[s_id] = create_user()
 
         # bot.send_message(message.chat.id, 'go')
@@ -53,31 +51,6 @@ def table(message):
         bot.send_message(message.chat.id, users_data.table[s_id]['sheet_link'])
 
     users_data.update()
-
-
-@bot.message_handler(func=lambda message:
-str(message.chat.id) in users_data.table.keys() and
-users_data.table[str(message.chat.id)]['state'] == 1)
-def getting_email(message):
-    users_data.load()
-
-    s_id = str(message.chat.id)
-    print('creating spredsheet')
-    last_index = message.text.find('@gmail.com')
-    if last_index == -1 or last_index == 0 or last_index != len(message.text) - len('@gmail.com'):
-        bot.send_message(message.chat.id, 'почта некорректная, попробуй еще раз')
-    else:
-        users_data.table[s_id]['mail'] = message.text
-        created = table_manager.create_table(users_data.table[s_id])
-        if created:
-            bot.send_message(message.chat.id, 'таблица готова\n' + 'https://docs.google.com/spreadsheets/d/' +
-                             users_data.table[s_id]['spreadsheet_id'])
-            users_data.table[s_id]['state'] = 2
-        else:
-            bot.send_message(message.chat.id, 'не получилось создать таблицу, попробуй перезапустить бота')
-            users_data.table.pop(s_id)
-
-        users_data.update()
 
 
 @bot.message_handler(commands=['categories'])
@@ -158,8 +131,33 @@ def test_callback(call):
 
 
 @bot.message_handler(func=lambda message:
-str(message.chat.id) in users_data.table.keys() and
-users_data.table[str(message.chat.id)]['state'] == 2)
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 1)
+def getting_email(message):
+    users_data.load()
+
+    s_id = str(message.chat.id)
+    print('creating spredsheet')
+    last_index = message.text.find('@gmail.com')
+    if last_index == -1 or last_index == 0 or last_index != len(message.text) - len('@gmail.com'):
+        bot.send_message(message.chat.id, 'почта некорректная, попробуй еще раз')
+    else:
+        users_data.table[s_id]['mail'] = message.text
+        created = table_manager.create_table(users_data.table[s_id])
+        if created:
+            bot.send_message(message.chat.id, 'таблица готова\n' + 'https://docs.google.com/spreadsheets/d/' +
+                             users_data.table[s_id]['spreadsheet_id'])
+            users_data.table[s_id]['state'] = 2
+        else:
+            bot.send_message(message.chat.id, 'не получилось создать таблицу, попробуй перезапустить бота')
+            users_data.table.pop(s_id)
+
+        users_data.update()
+
+
+@bot.message_handler(func=lambda message:
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 2)
 def get_expence(message):
     users_data.load()
 
@@ -193,8 +191,8 @@ def get_expence(message):
 
 
 @bot.message_handler(func=lambda message:
-str(message.chat.id) in users_data.table.keys() and
-users_data.table[str(message.chat.id)]['state'] == 3)
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 3)
 def adding_category(message):
     users_data.load()
 
@@ -226,8 +224,8 @@ def adding_category(message):
 
 
 @bot.message_handler(func=lambda message:
-str(message.chat.id) in users_data.table.keys() and
-users_data.table[str(message.chat.id)]['state'] == 4)
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 4)
 def deleting_category(message):
     users_data.load()
 
@@ -250,8 +248,8 @@ def deleting_category(message):
 
 
 @bot.message_handler(func=lambda message:
-str(message.chat.id) in users_data.table.keys() and
-users_data.table[str(message.chat.id)]['state'] == 5)
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 5)
 def setting_main_acc(message):
     users_data.load()
 
@@ -266,8 +264,8 @@ def setting_main_acc(message):
 
 
 @bot.message_handler(func=lambda message:
-str(message.chat.id) in users_data.table.keys() and
-users_data.table[str(message.chat.id)]['state'] == 6)
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 6)
 def adding_acc(message):
     users_data.load()
 
@@ -282,8 +280,8 @@ def adding_acc(message):
 
 
 @bot.message_handler(func=lambda message:
-str(message.chat.id) in users_data.table.keys() and
-users_data.table[str(message.chat.id)]['state'] == 7)
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 7)
 def deleting_acc(message):
     users_data.load()
 
@@ -305,8 +303,8 @@ def deleting_acc(message):
 
 
 @bot.message_handler(func=lambda message:
-str(message.chat.id) in users_data.table.keys() and
-users_data.table[str(message.chat.id)]['state'] == 8)
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 8)
 def adding_sub(message):
     users_data.load()
 
@@ -335,8 +333,8 @@ def adding_sub(message):
 
 
 @bot.message_handler(func=lambda message:
-str(message.chat.id) in users_data.table.keys() and
-users_data.table[str(message.chat.id)]['state'] == 9)
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 9)
 def deleting_sub(message):
     users_data.load()
 

@@ -108,9 +108,13 @@ class TableManager:
             user['spreadsheet_id'] = sheet["spreadsheetId"]
             user['sheet_link'] = sheet["spreadsheetUrl"]
             self.first_fill(user['spreadsheet_id'])
-            self.drive_service.permissions().create(fileId=user['spreadsheet_id'],
-                                               body={'role': 'writer', 'type': 'user', 'emailAddress': user['mail'],
-                                                     'sendNotificationEmail': False}).execute()
+            self.drive_service.permissions().create(
+                fileId=user['spreadsheet_id'],
+                body={
+                    'role': 'writer',
+                    'type': 'user',
+                    'emailAddress': user['mail'],
+                    'sendNotificationEmail': False}).execute()
         return created
 
     def first_fill(self, spreadsheet_id):
