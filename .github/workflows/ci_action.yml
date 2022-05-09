@@ -16,15 +16,3 @@ jobs:
 
       - name: Delete image
         run: docker image rm bot
-
-  code_check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Python Linter
-        uses: sunnysid3up/python-linter@master
-        with:
-          source: "main.py helpers.py"
-          pylint-options: "--max-line-length=120 --disable=R,C"
-          mypy-options: "--exclude='main.py' --exclude='helpers.py'"
-          isort-options: "--skip=main.py,helpers.py"
-          black-options: "--exclude='main.py' --exclude=helpers.py"
