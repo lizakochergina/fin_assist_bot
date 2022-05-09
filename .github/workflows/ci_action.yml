@@ -25,6 +25,6 @@ jobs:
         with:
           source: "main.py helpers.py"
           pylint-options: "--max-line-length=120 --disable=R,C"
-          mypy-options: "--exclude=main.py --exclude=helpers.py"
+          mypy-options: "--exclude='main.py' --exclude='helpers.py'"
           isort-options: "--skip=main.py,helpers.py"
-          black-options: "--exclude=main.py --exclude=helpers.py"
+          black-options: "--exclude='main.py' --exclude=helpers.py"
