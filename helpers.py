@@ -53,7 +53,7 @@ class TableManager:
     def delete_table(self, spreadsheet_id):
         self.drive_service.files().delete(fileId=spreadsheet_id).execute()
 
-    def set_expense(self, user, date, sum, category, account, comment):
+    def set_expense(self, user, date, expence, category, account, comment):
         try:
             self.sheet_service.spreadsheets().values().batchUpdate(spreadsheetId=user['spreadsheet_id'], body={
                 "value_input_option": "USER_ENTERED",
@@ -62,7 +62,7 @@ class TableManager:
                         "range": "Лист1!A" + str(user['last_row_expence']) + ":E" + str(user['last_row_expence']),
                         "majorDimension": "ROWS",
                         "values": [
-                            [date, sum, category, comment, account]
+                            [date, expence, category, comment, account]
                         ]
                     }
                 ]
@@ -74,7 +74,7 @@ class TableManager:
             print(e)
             return False
 
-    def set_income(self, user, date, sum, category, account, comment):
+    def set_income(self, user, date, expence, category, account, comment):
         try:
             self.sheet_service.spreadsheets().values().batchUpdate(spreadsheetId=user['spreadsheet_id'], body={
                 "value_input_option": "USER_ENTERED",
@@ -83,7 +83,7 @@ class TableManager:
                         "range": "Лист1!G" + str(user['last_row_income']) + ":K" + str(user['last_row_income']),
                         "majorDimension": "ROWS",
                         "values": [
-                            [date, sum, category, comment, account]
+                            [date, expence, category, comment, account]
                         ]
                     }
                 ]
@@ -376,7 +376,7 @@ def del_sub(chat_id, user, bot):
                      reply_markup=keyboard)
 
 
-def format_expence(text, user):  # ret (income/outcome, sum, category, acc, comment)
+def format_expence(text, user):  # ret (income/outcome, expence, category, acc, comment)
     items = text.split()
 
     if len(items) < 2:
@@ -387,9 +387,9 @@ def format_expence(text, user):  # ret (income/outcome, sum, category, acc, comm
     if items[0] == '+':
         income = 1
 
-    sum = 0
+    expence = 0
     try:
-        sum = int(items[0])
+        expence = int(items[0])
     except ValueError:
         print("value err")
         return False, False, False, False, False
@@ -414,7 +414,7 @@ def format_expence(text, user):  # ret (income/outcome, sum, category, acc, comm
     comment = ''
 
     if i == len(items):
-        return income, sum, category, account, comment
+        return income, expence, category, account, comment
 
     if items[i] in user['accounts']:
         account = items[i]
@@ -424,7 +424,7 @@ def format_expence(text, user):  # ret (income/outcome, sum, category, acc, comm
         comment += items[i] + ' '
         i += 1
 
-    return income, sum, category, account, comment
+    return income, expence, category, account, comment
 
 
 callback_funcs = {'watch_categ': watch_categ, 'add_categ': add_categ, 'del_categ': del_categ, 'watch_acc': watch_acc,

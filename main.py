@@ -167,25 +167,25 @@ def get_expence(message):
     print(message.text.split())
 
     s_id = str(message.chat.id)
-    income, sum, category, account, comment = format_expence(message.text, users_data.table[s_id])
-    if not sum:
+    income, expence, category, account, comment = format_expence(message.text, users_data.table[s_id])
+    if not expence:
         bot.send_message(message.chat.id, 'некорректные данные')
         return
 
     if income == 1:
-        res = table_manager.set_income(users_data.table[s_id], datetime.today().strftime('%d.%m.%Y'), sum, category,
+        res = table_manager.set_income(users_data.table[s_id], datetime.today().strftime('%d.%m.%Y'), expence, category,
                                        account, comment)
     else:
-        res = table_manager.set_expense(users_data.table[s_id], datetime.today().strftime('%d.%m.%Y'), sum, category,
-                                        account, comment)
+        res = table_manager.set_expense(users_data.table[s_id], datetime.today().strftime('%d.%m.%Y'), expence,
+                                        category, account, comment)
 
     if not res:
         bot.send_message(message.chat.id, 'произошла ошибка, попробуйте еще раз')
     else:
         if users_data.table[s_id]['send_for_verific']:
             bot.send_message(message.chat.id,
-                             "добавил следующую запись:\nсумма: " + str(sum) + "\nкатегория: " + category
-                             + "\nсчет: " + account + "\nкомментарий: " + comment)
+                             "добавил следующую запись:\nсумма: " + str(expence) + "\nкатегория: " + category +
+                             "\nсчет: " + account + "\nкомментарий: " + comment)
         else:
             bot.send_message(message.chat.id, 'запись добавлена успешно')
 
