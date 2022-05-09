@@ -1,0 +1,21 @@
+name: Check
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  run_linter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Python Linter
+        uses: sunnysid3up/python-linter@master
+        with:
+          source: "main.py helpers.py"
+          mypy-options: "--max-line-length=120"
+          pylint-options: "--max-line-length=120"
+          isort-options: "--line-length=120"
+
