@@ -1,6 +1,7 @@
 import os
 import telebot
-from helpers import *
+from datetime import datetime
+from helpers import UserData, TableManager, create_user, callback_funcs, format_expence
 
 bot = telebot.TeleBot(os.getenv('TELEGRAM_TOKEN'), parse_mode=None)
 users_data = UserData()
@@ -59,18 +60,18 @@ def categories(message):
 
     keyboard = [
         [
-            types.InlineKeyboardButton("посмотреть категории", callback_data='watch_categ'),
+            telebot.types.InlineKeyboardButton("посмотреть категории", callback_data='watch_categ'),
         ],
         [
-            types.InlineKeyboardButton("добавить категорию, ключевое слово", callback_data='add_categ')
+            telebot.types.InlineKeyboardButton("добавить категорию, ключевое слово", callback_data='add_categ')
         ],
         [
-            types.InlineKeyboardButton("удалить категорию, ключевое слово", callback_data='del_categ')
+            telebot.types.InlineKeyboardButton("удалить категорию, ключевое слово", callback_data='del_categ')
         ]
     ]
 
     bot.send_message(message.chat.id, 'выбери, что ты хочешь сделать',
-                     reply_markup=types.InlineKeyboardMarkup(keyboard))
+                     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
 
 
 @bot.message_handler(commands=['subscriptions'])
@@ -79,18 +80,18 @@ def subscribes(message):
 
     keyboard = [
         [
-            types.InlineKeyboardButton("посмотреть подписки", callback_data='watch_sub'),
+            telebot.types.InlineKeyboardButton("посмотреть подписки", callback_data='watch_sub'),
         ],
         [
-            types.InlineKeyboardButton('добавить подписку', callback_data='add_sub')
+            telebot.types.InlineKeyboardButton('добавить подписку', callback_data='add_sub')
         ],
         [
-            types.InlineKeyboardButton("удалить подписку", callback_data='del_sub')
+            telebot.types.InlineKeyboardButton("удалить подписку", callback_data='del_sub')
         ]
     ]
 
     bot.send_message(message.chat.id, 'выбери, что ты хочешь сделать',
-                     reply_markup=types.InlineKeyboardMarkup(keyboard))
+                     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
 
 
 @bot.message_handler(commands=['accounts'])
@@ -99,21 +100,21 @@ def accounts(message):
 
     keyboard = [
         [
-            types.InlineKeyboardButton("посмотреть счета", callback_data='watch_acc'),
+            telebot.types.InlineKeyboardButton("посмотреть счета", callback_data='watch_acc'),
         ],
         [
-            types.InlineKeyboardButton("установить основной счет", callback_data='set_main_acc')
+            telebot.types.InlineKeyboardButton("установить основной счет", callback_data='set_main_acc')
         ],
         [
-            types.InlineKeyboardButton("добавить счета", callback_data='add_acc')
+            telebot.types.InlineKeyboardButton("добавить счета", callback_data='add_acc')
         ],
         [
-            types.InlineKeyboardButton("удалить счета", callback_data='del_acc')
+            telebot.types.InlineKeyboardButton("удалить счета", callback_data='del_acc')
         ]
     ]
 
     bot.send_message(message.chat.id, 'выбери, что ты хочешь сделать',
-                     reply_markup=types.InlineKeyboardMarkup(keyboard))
+                     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ['watch_categ', 'add_categ', 'del_categ', 'watch_acc',
