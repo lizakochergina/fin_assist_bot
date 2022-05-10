@@ -4,14 +4,9 @@ on:
   release:
     types: [ created ]
 
-  workflow_run:
-    workflows: [ Run Linter ]
-    types: [ completed ]
-
 jobs:
   push_docker:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout
