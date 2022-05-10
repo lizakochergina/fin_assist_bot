@@ -11,8 +11,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Try to build Docker image
-        run: docker build --tag bot .
+      - name: Set up Python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.8"
 
-      - name: Delete image
-        run: docker image rm bot
+      - name: Run linter
+        uses: py-actions/flake8@v2
+        with:
+          max-line-length: "120"
+          path: "main.py"
