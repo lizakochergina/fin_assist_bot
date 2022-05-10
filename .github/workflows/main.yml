@@ -1,11 +1,11 @@
-name: CI - check and prepare
+name: Run Linter
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  docker_build:
+  run_linter:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
