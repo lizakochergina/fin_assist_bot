@@ -20,4 +20,4 @@ jobs:
         uses: py-actions/flake8@v2
         with:
           max-line-length: "120"
-          path: "main.py"
+          path: "main.py helpers.py"
