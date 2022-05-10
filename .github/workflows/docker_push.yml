@@ -5,8 +5,26 @@ on:
     types: [ created ]
 
 jobs:
+  run_linter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.8"
+
+      - name: Run linter
+        uses: py-actions/flake8@v2
+        with:
+          max-line-length: "120"
+          path: "main.py helpers.py"
+
   push_docker:
     runs-on: ubuntu-latest
+    needs: run_linter
 
     steps:
       - name: Checkout
