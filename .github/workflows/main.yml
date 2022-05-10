@@ -11,11 +11,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Python Linter
-        uses: sunnysid3up/python-linter@master
+      - name: Setup python
+        uses: actions/setup-python@v2
         with:
-          source: "main.py helpers.py"
-          mypy-options: "--max-line-length=120"
-          pylint-options: "--max-line-length=120"
-          isort-options: "--line-length=120"
+          python-version: "3.9"
+
+      - name: Run linter
+        uses: ricardochaves/python-lint@v1.4.0
+          with:
+            python-root-list: "main.py helpers.py"
+            use-pylint: true
+            use-pycodestyle: false
+            use-flake8: false
+            use-black: false
+            use-mypy: false
+            use-isort: false
+            extra-pylint-options: "--max-line-length=120"
 
