@@ -11,4 +11,7 @@ ENV GOOGLE_APPLICATION_CREDENTIALS=/key.json
 
 COPY . .
 
+RUN pwd
+RUN ls
+
 CMD [ "python3", "-m" , "main.py"]
