@@ -1,3 +1,5 @@
+import io
+from googleapiclient.http import MediaIoBaseDownload
 from telebot import types
 from datetime import datetime
 from json import JSONDecodeError
@@ -25,13 +27,6 @@ class UserData:
         with open('data.json', 'w') as f:
             json.dump(self.table, f)
 
-    def load(self):
-        self.__init__()
-
-    def __del__(self):
-        self.update()
-        print('__del__ for user data')
-
 
 class TableManager:
     sheet_service = None
@@ -53,6 +48,17 @@ class TableManager:
 
     def delete_table(self, spreadsheet_id):
         self.drive_service.files().delete(fileId=spreadsheet_id).execute()
+
+    def download_table(self, spreadsheet_id):
+        print(spreadsheet_id)
+        request = self.drive_service.files().export(fileId=spreadsheet_id, mimeType='text/csv')
+        fh = io.FileIO(spreadsheet_id + '.csv', 'wb')
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+            print("Download %.2f%%." % (status.progress() * 100.0))
+        fh.close()
 
     def set_expense(self, user, date, expence, category, account, comment):
         try:
@@ -250,12 +256,16 @@ def create_user():
         'state': 1,
         'sheet_link': '',
         'spreadsheet_id': '',
-        'categories': {
-            'супермаркеты': [], 'кафе': ['кофе'], 'одежда': [], 'аптека': [], 'жкх': [], 'квартира': [],
-            'транспорт': [], 'книги': [], 'кино': [], 'спорттовары': []
+        'categories_out': {
+            'супермаркеты': [], 'кафе': [], 'одежда': [], 'аптека': [], 'жкх': [], 'квартира': [],
+            'транспорт': [], 'книги': [], 'кино': []
         },
-        'key_words': dict(),
-        'accounts': [],
+        'categories_in': {
+            'зарплата': []
+        },
+        'key_words_out': dict(),
+        'key_words_in': dict(),
+        'accounts': dict(),
         'main_acc': '',
         'subscriptions': dict(),
         'send_for_verific': True,
@@ -266,24 +276,39 @@ def create_user():
 
 def watch_categ(chat_id, user, bot):
     print('got callback watch_categ')
-    categ_str = ''
-    for category in user['categories'].keys():
-        categ_str += category
-        if user['categories'][category]:
-            categ_str += ' - '
-            for key_word in user['categories'][category]:
-                categ_str += key_word
-                categ_str += ', '
-            categ_str = categ_str[:-2]
-        categ_str += '\n'
+
+    majors = ['_out', '_in']
+    categ_str = '<b>расходы</b>\n'
+    for major in majors:
+        for category in user['categories' + major].keys():
+            categ_str += category
+            if user['categories' + major][category]:
+                categ_str += ' - '
+                for key_word in user['categories' + major][category]:
+                    categ_str += key_word
+                    categ_str += ', '
+                categ_str = categ_str[:-2]
+            categ_str += '\n'
+        if major == '_out':
+            categ_str += '\n<b>доходы</b>\n'
+
     print(categ_str)
     user['state'] = 2
-    bot.send_message(chat_id, categ_str)
+    bot.send_message(chat_id, categ_str, parse_mode='HTML')
 
 
-def add_categ(chat_id, user, bot):
-    print('got callback add_categ')
-    user['state'] = 3
+def add_categ_out(chat_id, user, bot):
+    print('got callback add_categ out')
+    user['state'] = 30
+    bot.send_message(chat_id,
+                     'чтобы добавить категории и ключевые слова, отправь сообщение в таком формате\n' +
+                     '[категория] - [ключевое слово 1], [ключевое слово 2]; [категория] - [ключевое слово 1]; ' +
+                     '[категория]')
+
+
+def add_categ_in(chat_id, user, bot):
+    print('got callback add_categ in')
+    user['state'] = 31
     bot.send_message(chat_id,
                      'чтобы добавить категории и ключевые слова, отправь сообщение в таком формате\n' +
                      '[категория] - [ключевое слово 1], [ключевое слово 2]; [категория] - [ключевое слово 1]; ' +
@@ -293,18 +318,21 @@ def add_categ(chat_id, user, bot):
 def del_categ(chat_id, user, bot):
     print('got callback del_categ')
     user['state'] = 4
-    bot.send_message(chat_id, 'чтобы удалить категорию категорию или ключевое слово, напиши эти позиции через запятую')
+    bot.send_message(chat_id, 'чтобы удалить категорию категорию или ключевое слово из раздела доходов, ' +
+                     'напиши эти позиции через запятую\n' + 'чтобы удалить категорию категорию или ключевое ' +
+                     'слово из раздела расходов, напиши перед категорией знак <b>+</b>', parse_mode='HTML')
 
 
 def watch_acc(chat_id, user, bot):
     print('got callback watch_acc')
+    print(user['accounts'])
     s_acc = ''
-    for acc in user['accounts']:
+    for acc in user['accounts'].keys():
         if acc == user['main_acc']:
             s_acc += '<b>' + acc + '</b>'
         else:
             s_acc += acc
-        s_acc += '\n'
+        s_acc += '  ' + str(user['accounts'][acc]) + '\n'
     if s_acc == '':
         s_acc = 'счета не установлены'
     print(s_acc)
@@ -316,22 +344,28 @@ def set_main_acc(chat_id, user, bot):
     print('got callback set_main_acc')
     user['state'] = 5
     keyboard = types.ReplyKeyboardMarkup(row_width=1, one_time_keyboard=True, resize_keyboard=True)
-    for acc in user['accounts']:
+    for acc in user['accounts'].keys():
         keyboard.add(types.KeyboardButton(acc))
-    bot.send_message(chat_id, 'чтобы установить основной счет, выбери из предложенных или напиши его название в чат',
-                     reply_markup=keyboard)
+    bot.send_message(chat_id, 'чтобы установить основной счет, выбери из предложенных или напиши его название в чат ' +
+                     'в формате\n[название счета] [баланс]', reply_markup=keyboard)
 
 
 def add_acc(chat_id, user, bot):
     print('got callback add_acc')
     user['state'] = 6
-    bot.send_message(chat_id, 'чтобы добавить счета, отправь сообщение в таком формате\n[счет 1], [счет 2]')
+    bot.send_message(chat_id, 'чтобы добавить счета, отправь сообщение в таком формате\n[счет 1] [баланс 1], ' +
+                     '[счет 2] [баланс 2]')
 
 
 def del_acc(chat_id, user, bot):
     print('got callback del_acc')
     user['state'] = 7
-    bot.send_message(chat_id, 'чтобы удалить счета, напиши их через запятую')
+    keyboard = types.ReplyKeyboardMarkup(row_width=1, one_time_keyboard=True, resize_keyboard=True)
+    for acc in user['accounts'].keys():
+        keyboard.add(types.KeyboardButton(acc))
+    keyboard.add(types.KeyboardButton('отменить действие'))
+    bot.send_message(chat_id, 'чтобы удалить счета, выбери из предложенных или напиши их названия через запятую',
+                     reply_markup=keyboard)
 
 
 def watch_sub(chat_id, user, bot):
@@ -385,8 +419,11 @@ def format_expence(text, user):  # ret (income/outcome, expence, category, acc, 
         return False, False, False, False, False
 
     income = 0
-    if items[0] == '+':
+    major = '_out'
+    if items[0][0] == '+':
         income = 1
+        items[0] = items[0][1:]
+        major = '_in'
 
     expence = 0
     try:
@@ -397,19 +434,19 @@ def format_expence(text, user):  # ret (income/outcome, expence, category, acc, 
 
     category = items[1]
     print("\tcategories: ", end='')
-    print(user['categories'])
+    print(user['categories' + major])
     print("\tkey words: ", end='')
-    print(user['key_words'])
+    print(user['key_words' + major])
     print("\tcur category: " + category)
     i = 2
-    while category not in user['categories'].keys() and category not in user['key_words'].keys():
+    while category not in user['categories' + major].keys() and category not in user['key_words' + major].keys():
         if i == len(items):
             print("cant define category")
             return False, False, False, False, False
         category += items[i]
         i += 1
-    if category in user['key_words'].keys():
-        category = user['key_words'][category] + ", " + category
+    if category in user['key_words' + major].keys():
+        category = user['key_words' + major][category] + ", " + category
 
     account = user['main_acc']
     comment = ''
@@ -417,7 +454,7 @@ def format_expence(text, user):  # ret (income/outcome, expence, category, acc, 
     if i == len(items):
         return income, expence, category, account, comment
 
-    if items[i] in user['accounts']:
+    if items[i] in user['accounts'].keys():
         account = items[i]
         i += 1
 
@@ -428,6 +465,6 @@ def format_expence(text, user):  # ret (income/outcome, expence, category, acc, 
     return income, expence, category, account, comment
 
 
-callback_funcs = {'watch_categ': watch_categ, 'add_categ': add_categ, 'del_categ': del_categ, 'watch_acc': watch_acc,
-                  'set_main_acc': set_main_acc, 'add_acc': add_acc, 'del_acc': del_acc, 'watch_sub': watch_sub,
-                  'add_sub': add_sub, 'del_sub': del_sub}
+callback_funcs = {'watch_categ': watch_categ, 'add_categ_out': add_categ_out, 'add_categ_in': add_categ_in,
+                  'del_categ': del_categ, 'watch_acc': watch_acc, 'set_main_acc': set_main_acc, 'add_acc': add_acc,
+                  'del_acc': del_acc, 'watch_sub': watch_sub, 'add_sub': add_sub, 'del_sub': del_sub}

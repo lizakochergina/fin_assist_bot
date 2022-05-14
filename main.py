@@ -10,60 +10,65 @@ table_manager = TableManager()
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    users_data.load()
-
     s_id = str(message.chat.id)
     print('cur id ' + s_id)
     print(users_data.table)
     if s_id in users_data.table.keys():
         bot.send_message(message.chat.id, "у нас уже есть таблица для тебя\n" + users_data.table[s_id]['sheet_link'])
-        users_data.table[s_id]['state'] = 2  # wait for expences
+        users_data.table[s_id]['state'] = 2
     else:
         bot.send_message(message.chat.id, "привет! для создания таблицы пришли, пожалуйста, свою gmail почту")
         users_data.table[s_id] = create_user()
-
-        # bot.send_message(message.chat.id, 'go')
-        # users_table[message.chat.id] = UserInfo()
-        # users_table[message.chat.id].set_state(2)
 
     users_data.update()
 
 
 @bot.message_handler(commands=['reset'])
 def reset(message):
-    users_data.load()
-
     s_id = str(message.chat.id)
-    bot.send_message(message.chat.id, "сейчас я удалю все данные")
-    table_manager.delete_table(users_data.table[s_id]['spreadsheet_id'])
-    users_data.table.pop(s_id)
+    keyboard = telebot.types.ReplyKeyboardMarkup(row_width=1, one_time_keyboard=True, resize_keyboard=True)
+    keyboard.add(telebot.types.KeyboardButton('удалить данные'))
+    keyboard.add(telebot.types.KeyboardButton('отмена'))
+    users_data.table[s_id]['state'] = 10
+    bot.send_message(message.chat.id, "подтверди, пожалуйста, безвозвратное удаление данных", reply_markup=keyboard)
 
     users_data.update()
 
 
 @bot.message_handler(commands=['table'])
 def table(message):
-    users_data.load()
-
     s_id = str(message.chat.id)
     if users_data.table[s_id]['sheet_link'] == '':
         bot.send_message(message.chat.id, "таблица еще не создана. введи команду /start")
     else:
         bot.send_message(message.chat.id, users_data.table[s_id]['sheet_link'])
 
-    users_data.update()
+
+@bot.message_handler(commands=['balance'])
+def get_balance(message):
+    s_id = str(message.chat.id)
+    callback_funcs['watch_acc'](message.chat.id, users_data.table[s_id], bot)
+
+
+@bot.message_handler(commands=['download'])
+def get_balance(message):
+    table_manager.download_table(users_data.table[str(message.chat.id)]['spreadsheet_id'])
+    print('download done')
 
 
 @bot.message_handler(commands=['categories'])
 def categories(message):
-    users_data.load()
-
     keyboard = [
         [
             telebot.types.InlineKeyboardButton("посмотреть категории", callback_data='watch_categ'),
         ],
         [
-            telebot.types.InlineKeyboardButton("добавить категорию, ключевое слово", callback_data='add_categ')
+            telebot.types.InlineKeyboardButton("добавить категорию, ключевое слово расхода",
+                                               callback_data='add_categ_out')
+        ],
+        [
+            telebot.types.InlineKeyboardButton("добавить категорию, ключевое слово дохода",
+                                               callback_data='add_categ_in')
         ],
         [
             telebot.types.InlineKeyboardButton("удалить категорию, ключевое слово", callback_data='del_categ')
@@ -76,8 +81,6 @@ def categories(message):
 
 @bot.message_handler(commands=['subs'])
 def subscribes(message):
-    users_data.load()
-
     keyboard = [
         [
             telebot.types.InlineKeyboardButton("посмотреть подписки", callback_data='watch_sub'),
@@ -96,8 +99,6 @@ def subscribes(message):
 
 @bot.message_handler(commands=['accounts'])
 def accounts(message):
-    users_data.load()
-
     keyboard = [
         [
             telebot.types.InlineKeyboardButton("посмотреть счета", callback_data='watch_acc'),
@@ -117,12 +118,10 @@ def accounts(message):
                      reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
 
 
-@bot.callback_query_handler(func=lambda call: call.data in ['watch_categ', 'add_categ', 'del_categ', 'watch_acc',
-                                                            'set_main_acc', 'add_acc', 'del_acc', 'watch_sub',
-                                                            'add_sub', 'del_sub'])
+@bot.callback_query_handler(func=lambda call: call.data in ['watch_categ', 'add_categ_out', 'add_categ_in','del_categ',
+                                                            'watch_acc', 'set_main_acc', 'add_acc', 'del_acc',
+                                                            'watch_sub', 'add_sub', 'del_sub'])
 def test_callback(call):
-    users_data.load()
-
     s_id = str(call.message.chat.id)
     print('got callback')
     print('data ' + call.data)
@@ -135,8 +134,6 @@ def test_callback(call):
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 1)
 def getting_email(message):
-    users_data.load()
-
     s_id = str(message.chat.id)
     print('creating spredsheet')
     last_index = message.text.find('@gmail.com')
@@ -160,8 +157,6 @@ def getting_email(message):
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 2)
 def get_expence(message):
-    users_data.load()
-
     print("got an expence")
     print("\ttext: " + message.text)
     print("\titems: ", end='')
@@ -193,9 +188,13 @@ def get_expence(message):
 
 @bot.message_handler(func=lambda message:
                      str(message.chat.id) in users_data.table.keys() and
-                     users_data.table[str(message.chat.id)]['state'] == 3)
+                     (users_data.table[str(message.chat.id)]['state'] == 30 or
+                     users_data.table[str(message.chat.id)]['state'] == 31))
 def adding_category(message):
-    users_data.load()
+    if users_data.table[str(message.chat.id)]['state'] == 30:
+        major_category = '_out'
+    else:
+        major_category = '_in'
 
     s_id = str(message.chat.id)
     items = message.text.split(';')
@@ -207,18 +206,18 @@ def adding_category(message):
             cur_category = item[:k].strip(' ')
             print('cur category ' + cur_category)
             key_words = item[k + 1:].split(',')
-            if cur_category not in users_data.table[s_id]['categories'].keys():
-                users_data.table[s_id]['categories'][cur_category] = []
+            if cur_category not in users_data.table[s_id]['categories' + major_category].keys():
+                users_data.table[s_id]['categories' + major_category][cur_category] = []
             print('key words: ', end='')
             print(key_words)
             for key_word in key_words:
-                users_data.table[s_id]['categories'][cur_category].append(key_word.strip(' '))
-                users_data.table[s_id]['key_words'][key_word.strip(' ')] = cur_category
+                users_data.table[s_id]['categories' + major_category][cur_category].append(key_word.strip(' '))
+                users_data.table[s_id]['key_words' + major_category][key_word.strip(' ')] = cur_category
         else:
             cur_category = item.strip(' ')
             print('cur category ' + cur_category)
-            if cur_category not in users_data.table[s_id]['categories'].keys():
-                users_data.table[s_id]['categories'][cur_category] = []
+            if cur_category not in users_data.table[s_id]['categories' + major_category].keys():
+                users_data.table[s_id]['categories' + major_category][cur_category] = []
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
@@ -228,21 +227,31 @@ def adding_category(message):
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 4)
 def deleting_category(message):
-    users_data.load()
-
     s_id = str(message.chat.id)
     items = [item.strip() for item in message.text.split(',')]
     print(message.text)
     print(items)
+    non_del = ''
     for item in items:
-        if item in users_data.table[s_id]['categories'].keys():
-            for key_word in users_data.table[s_id]['categories'][item]:
-                users_data.table[s_id]['key_words'].pop(key_word)
-            users_data.table[s_id]['categories'].pop(item)
-        elif item in users_data.table[s_id]['key_words'].keys():
-            category = users_data.table[s_id]['key_words'][item]
-            users_data.table[s_id]['key_words'].pop(item)
-            users_data.table[s_id]['categories'][category].remove(item)
+        if item[0] == '+':
+            major_category = '_in'
+            item = item[1:]
+        else:
+            major_category = '_out'
+
+        if item in users_data.table[s_id]['categories' + major_category].keys():
+            for key_word in users_data.table[s_id]['categories' + major_category][item]:
+                users_data.table[s_id]['key_words' + major_category].pop(key_word)
+            users_data.table[s_id]['categories' + major_category].pop(item)
+        elif item in users_data.table[s_id]['key_words' + major_category].keys():
+            category = users_data.table[s_id]['key_words' + major_category][item]
+            users_data.table[s_id]['key_words' + major_category].pop(item)
+            users_data.table[s_id]['categories' + major_category][category].remove(item)
+        else:
+            non_del += item + '\n'
+
+    if non_del != '':
+        bot.send_message(message.chat.id, 'не получилось найти и удалить следующие категории:\n' + non_del)
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
@@ -252,13 +261,22 @@ def deleting_category(message):
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 5)
 def setting_main_acc(message):
-    users_data.load()
-
     s_id = str(message.chat.id)
     acc = message.text.strip()
-    if acc not in users_data.table[s_id]['accounts']:
-        users_data.table[s_id]['accounts'].append(acc)
-    users_data.table[s_id]['main_acc'] = acc
+    if acc not in users_data.table[s_id]['accounts'].keys():
+        items = message.text.split()
+        balance = items[-1]
+        new_acc = message.text[:-len(balance)].strip()
+        try:
+            users_data.table[s_id]['accounts'][new_acc] = int(balance)
+            users_data.table[s_id]['main_acc'] = new_acc
+        except ValueError:
+            print("def setting_main_acc, can't cast balance")
+            users_data.table[s_id]['state'] = 2
+            bot.send_message(message.chat.id, 'произошла ошибка, попробуй еще раз')
+            return
+    else:
+        users_data.table[s_id]['main_acc'] = acc
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
@@ -268,13 +286,22 @@ def setting_main_acc(message):
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 6)
 def adding_acc(message):
-    users_data.load()
-
     s_id = str(message.chat.id)
-    items = [item.strip() for item in message.text.split(',')]
+    undef = ''
+    items = message.text.split(',')
+    print(items)
     for item in items:
-        if item not in users_data.table[s_id]['accounts']:
-            users_data.table[s_id]['accounts'].append(item)
+        balance = item.split()[-1].strip()
+        acc = item[:-len(balance)].strip()
+        print(item, balance, acc)
+        try:
+            users_data.table[s_id]['accounts'][acc] = int(balance)
+        except ValueError:
+            print("def adding_acc, can't cast balance")
+            undef += acc + '\n'
+
+    if undef != '':
+        bot.send_message(message.chat.id, 'не удалось установить следующие счета:\n' + undef)
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
@@ -284,22 +311,23 @@ def adding_acc(message):
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 7)
 def deleting_acc(message):
-    users_data.load()
-
     s_id = str(message.chat.id)
-    items = [item.strip() for item in message.text.split(',')]
-    for item in items:
-        if item == users_data.table[s_id]['main_acc']:
-            users_data.table[s_id]['main_acc'] = ''
-        users_data.table[s_id]['accounts'].remove(item)
+    if message.text != 'отменить действие':
+        items = [item.strip() for item in message.text.split(',')]
+        for item in items:
+            if item == users_data.table[s_id]['main_acc']:
+                users_data.table[s_id]['main_acc'] = ''
+            users_data.table[s_id]['accounts'].pop(item)
 
-    if users_data.table[s_id]['main_acc'] == '':
-        bot.send_message(message.chat.id,
-                         'ты удалил основной счет. пожалуйста, установи новый основной счет')
-        callback_funcs['set_main_acc'](message.chat.id, users_data.table[s_id], bot)
-    else:
-        users_data.table[s_id]['state'] = 2
+        if users_data.table[s_id]['main_acc'] == '':
+            users_data.update()
+            bot.send_message(message.chat.id,
+                             'ты удалил основной счет. пожалуйста, установи новый основной счет')
+            callback_funcs['set_main_acc'](message.chat.id, users_data.table[s_id], bot)
+        else:
+            users_data.table[s_id]['state'] = 2
 
+    users_data.table[s_id]['state'] = 2
     users_data.update()
 
 
@@ -307,8 +335,6 @@ def deleting_acc(message):
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 8)
 def adding_sub(message):
-    users_data.load()
-
     s_id = str(message.chat.id)
     items = message.text.split(',')
     for item in items:
@@ -337,8 +363,6 @@ def adding_sub(message):
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 9)
 def deleting_sub(message):
-    users_data.load()
-
     s_id = str(message.chat.id)
     items = [item.strip() for item in message.text.split(',')]
     if items[0] != 'отменить действие':
@@ -354,6 +378,21 @@ def deleting_sub(message):
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
+
+
+@bot.message_handler(func=lambda message:
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 10)
+def deleting_all(message):
+    s_id = str(message.chat.id)
+    if message.text == 'удалить данные':
+        table_manager.delete_table(users_data.table[s_id]['spreadsheet_id'])
+        users_data.table.pop(s_id)
+    else:
+        users_data.table[s_id]['state'] = 2
+    users_data.update()
+
+
 
 
 bot.infinity_polling()
