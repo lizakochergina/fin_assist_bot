@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install --yes --no-install-recommends python3-pip
 COPY requirements.txt requirements.txt
 RUN pip install --upgrade -r requirements.txt
 
-ENV TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }}
 ENV GOOGLE_APPLICATION_CREDENTIALS=/key.json
 
 COPY . .
