@@ -74,7 +74,7 @@ def categories(message):
                      reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
 
 
-@bot.message_handler(commands=['subscriptions'])
+@bot.message_handler(commands=['subs'])
 def subscribes(message):
     users_data.load()
 

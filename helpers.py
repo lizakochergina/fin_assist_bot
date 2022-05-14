@@ -1,6 +1,7 @@
 from telebot import types
 from datetime import datetime
 from json import JSONDecodeError
+import os
 import json
 from google.oauth2 import service_account
 import googleapiclient.discovery
@@ -36,7 +37,6 @@ class TableManager:
     sheet_service = None
     drive_service = None
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-    SERVICE_ACCOUNT_FILE = 'sheets_key/finassistproject-4c3daffd861a.json'
     spreadsheet_body = {
         "properties": {"title": "учет финансов", "locale": "ru_RU"},
         "sheets": [
@@ -46,7 +46,8 @@ class TableManager:
 
     def __init__(self):
         print('def init for table manager')
-        creds = service_account.Credentials.from_service_account_file(self.SERVICE_ACCOUNT_FILE, scopes=self.SCOPES)
+        creds = service_account.Credentials.from_service_account_file(os.getenv('GOOGLE_APPLICATION_CREDENTIALS'),
+                                                                      scopes=self.SCOPES)
         self.sheet_service = googleapiclient.discovery.build('sheets', 'v4', credentials=creds)
         self.drive_service = googleapiclient.discovery.build('drive', 'v3', credentials=creds)
 

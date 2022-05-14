@@ -34,7 +34,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: lizakochergina/fin_bot
+          images: lizakochergina/fin_assist_bot
 
       - name: Login to DockerHub
         uses: docker/login-action@v2
