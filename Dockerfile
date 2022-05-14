@@ -11,7 +11,4 @@ ENV GOOGLE_APPLICATION_CREDENTIALS=key.json
 
 COPY . .
 
-RUN pwd
-RUN ls
-
-ENTRYPOINT ["sh", "script.sh"]
+CMD [ "python3", "-m" , "main.py"]
