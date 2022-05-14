@@ -14,4 +14,4 @@ COPY . .
 RUN pwd
 RUN ls
 
-ENTRYPOINT ["sh", "/script.sh"]
+ENTRYPOINT ["sh", "script.sh"]
