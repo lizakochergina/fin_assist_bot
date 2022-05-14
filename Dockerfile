@@ -14,4 +14,4 @@ COPY . .
 RUN pwd
 RUN ls
 
-CMD ["ls", ";" "python3", "-m" , "main.py"]
+ENTRYPOINT ["sh", "/script.sh"]
