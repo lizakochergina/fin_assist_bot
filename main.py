@@ -51,7 +51,7 @@ def get_balance(message):
 
 
 @bot.message_handler(commands=['help'])
-def categories(message):
+def help(message):
     keyboard = [
         [
             telebot.types.InlineKeyboardButton("инструкция", callback_data='instruction'),
