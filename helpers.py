@@ -11,17 +11,14 @@ import googleapiclient.discovery
 
 class UserData:
     table = {}
-    first_load = True
 
     def __init__(self):
-        if self.first_load:
-            print('loaded data first time')
-            with open('data.json') as f:
-                try:
-                    self.table = json.load(f)
-                except JSONDecodeError:
-                    pass
-        self.first_load = False
+        print('loaded data first time')
+        with open('data.json') as f:
+            try:
+                self.table = json.load(f)
+            except JSONDecodeError:
+                pass
 
     def update(self):
         with open('data.json', 'w') as f:
@@ -60,28 +57,28 @@ class TableManager:
             print("Download %.2f%%." % (status.progress() * 100.0))
         fh.close()
 
-    def set_expense(self, user, date, expence, category, account, comment):
+    def set_expense(self, user, date, expense, category, account, comment):
         try:
             self.sheet_service.spreadsheets().values().batchUpdate(spreadsheetId=user['spreadsheet_id'], body={
                 "value_input_option": "USER_ENTERED",
                 "data": [
                     {
-                        "range": "Лист1!A" + str(user['last_row_expence']) + ":E" + str(user['last_row_expence']),
+                        "range": "Лист1!A" + str(user['last_row_expense']) + ":E" + str(user['last_row_expense']),
                         "majorDimension": "ROWS",
                         "values": [
-                            [date, expence, category, comment, account]
+                            [date, expense, category, comment, account]
                         ]
                     }
                 ]
             }).execute()
-            user['last_row_expence'] += 1
+            user['last_row_expense'] += 1
             return True
         except BaseException as e:
-            print("could't set expence")
+            print("could't set expense")
             print(e)
             return False
 
-    def set_income(self, user, date, expence, category, account, comment):
+    def set_income(self, user, date, income, category, account, comment):
         try:
             self.sheet_service.spreadsheets().values().batchUpdate(spreadsheetId=user['spreadsheet_id'], body={
                 "value_input_option": "USER_ENTERED",
@@ -90,7 +87,7 @@ class TableManager:
                         "range": "Лист1!G" + str(user['last_row_income']) + ":K" + str(user['last_row_income']),
                         "majorDimension": "ROWS",
                         "values": [
-                            [date, expence, category, comment, account]
+                            [date, income, category, comment, account]
                         ]
                     }
                 ]
@@ -269,7 +266,7 @@ def create_user():
         'main_acc': '',
         'subscriptions': dict(),
         'send_for_verific': True,
-        'last_row_expence': 3,
+        'last_row_expense': 3,
         'last_row_income': 3
     }
 
@@ -411,11 +408,15 @@ def del_sub(chat_id, user, bot):
                      reply_markup=keyboard)
 
 
-def format_expence(text, user):  # ret (income/outcome, expence, category, acc, comment)
+def format_expense(text, user):  # ret (income/outcome, expense, category, acc, comment)
     items = text.split()
 
     if len(items) < 2:
         print("too few items")
+        return False, False, False, False, False
+
+    if items[0] == '+':
+        print("incorrect format")
         return False, False, False, False, False
 
     income = 0
@@ -425,9 +426,8 @@ def format_expence(text, user):  # ret (income/outcome, expence, category, acc, 
         items[0] = items[0][1:]
         major = '_in'
 
-    expence = 0
     try:
-        expence = int(items[0])
+        expense = int(items[0])
     except ValueError:
         print("value err")
         return False, False, False, False, False
@@ -452,7 +452,7 @@ def format_expence(text, user):  # ret (income/outcome, expence, category, acc, 
     comment = ''
 
     if i == len(items):
-        return income, expence, category, account, comment
+        return income, expense, category, account, comment
 
     if items[i] in user['accounts'].keys():
         account = items[i]
@@ -462,9 +462,19 @@ def format_expence(text, user):  # ret (income/outcome, expence, category, acc, 
         comment += items[i] + ' '
         i += 1
 
-    return income, expence, category, account, comment
+    return income, expense, category, account, comment
+
+
+def get_instruction(chat_id, user, bot):
+    bot.send_message(chat_id, "https://telegra.ph/finance-bot-05-15")
+
+
+def get_support(chat_id, user, bot):
+    bot.send_message(chat_id, 'пожалуйста, в следующем сообщении опиши проблему и укажи ник в Telegram')
+    user['state'] = 11
 
 
 callback_funcs = {'watch_categ': watch_categ, 'add_categ_out': add_categ_out, 'add_categ_in': add_categ_in,
                   'del_categ': del_categ, 'watch_acc': watch_acc, 'set_main_acc': set_main_acc, 'add_acc': add_acc,
-                  'del_acc': del_acc, 'watch_sub': watch_sub, 'add_sub': add_sub, 'del_sub': del_sub}
+                  'del_acc': del_acc, 'watch_sub': watch_sub, 'add_sub': add_sub, 'del_sub': del_sub,
+                  'instruction': get_instruction, 'support': get_support}

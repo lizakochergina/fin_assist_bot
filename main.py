@@ -1,7 +1,7 @@
 import os
 import telebot
 from datetime import datetime
-from helpers import UserData, TableManager, create_user, callback_funcs, format_expence
+from helpers import UserData, TableManager, create_user, callback_funcs, format_expense
 
 bot = telebot.TeleBot(os.getenv('TELEGRAM_TOKEN'), parse_mode=None)
 users_data = UserData()
@@ -50,10 +50,19 @@ def get_balance(message):
     callback_funcs['watch_acc'](message.chat.id, users_data.table[s_id], bot)
 
 
-@bot.message_handler(commands=['download'])
-def get_balance(message):
-    table_manager.download_table(users_data.table[str(message.chat.id)]['spreadsheet_id'])
-    print('download done')
+@bot.message_handler(commands=['help'])
+def categories(message):
+    keyboard = [
+        [
+            telebot.types.InlineKeyboardButton("инструкция", callback_data='instruction'),
+        ],
+        [
+            telebot.types.InlineKeyboardButton("написать сообщение в поддержку", callback_data='support')
+        ]
+    ]
+
+    bot.send_message(message.chat.id, 'выбери, что ты хочешь сделать',
+                     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
 
 
 @bot.message_handler(commands=['categories'])
@@ -118,9 +127,10 @@ def accounts(message):
                      reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
 
 
-@bot.callback_query_handler(func=lambda call: call.data in ['watch_categ', 'add_categ_out', 'add_categ_in','del_categ',
+@bot.callback_query_handler(func=lambda call: call.data in ['watch_categ', 'add_categ_out', 'add_categ_in', 'del_categ',
                                                             'watch_acc', 'set_main_acc', 'add_acc', 'del_acc',
-                                                            'watch_sub', 'add_sub', 'del_sub'])
+                                                            'watch_sub', 'add_sub', 'del_sub', 'instruction',
+                                                            'support'])
 def test_callback(call):
     s_id = str(call.message.chat.id)
     print('got callback')
@@ -135,7 +145,7 @@ def test_callback(call):
                      users_data.table[str(message.chat.id)]['state'] == 1)
 def getting_email(message):
     s_id = str(message.chat.id)
-    print('creating spredsheet')
+    print('creating spreadsheet')
     last_index = message.text.find('@gmail.com')
     if last_index == -1 or last_index == 0 or last_index != len(message.text) - len('@gmail.com'):
         bot.send_message(message.chat.id, 'почта некорректная, попробуй еще раз')
@@ -144,7 +154,8 @@ def getting_email(message):
         created = table_manager.create_table(users_data.table[s_id])
         if created:
             bot.send_message(message.chat.id, 'таблица готова\n' + 'https://docs.google.com/spreadsheets/d/' +
-                             users_data.table[s_id]['spreadsheet_id'])
+                             users_data.table[s_id]['spreadsheet_id'] + '\nдалее необходимо настроить таблицу. ' +
+                             'прочитай, пожалуйста, инструкцию https://telegra.ph/finance-bot-05-15')
             users_data.table[s_id]['state'] = 2
         else:
             bot.send_message(message.chat.id, 'не получилось создать таблицу, попробуй перезапустить бота')
@@ -156,40 +167,51 @@ def getting_email(message):
 @bot.message_handler(func=lambda message:
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 2)
-def get_expence(message):
-    print("got an expence")
+def get_expense(message):
+    print("got an expense")
     print("\ttext: " + message.text)
     print("\titems: ", end='')
     print(message.text.split())
 
     s_id = str(message.chat.id)
-    income, expence, category, account, comment = format_expence(message.text, users_data.table[s_id])
-    if not expence:
+    if users_data.table[s_id]['main_acc'] == '':
+        bot.send_message(message.chat.id, 'не установлен основной счет')
+        return
+
+    income, expense, category, account, comment = format_expense(message.text, users_data.table[s_id])
+    if not expense:
         bot.send_message(message.chat.id, 'некорректные данные')
         return
 
     if income == 1:
-        res = table_manager.set_income(users_data.table[s_id], datetime.today().strftime('%d.%m.%Y'), expence, category,
+        res = table_manager.set_income(users_data.table[s_id], datetime.today().strftime('%d.%m.%Y'), expense, category,
                                        account, comment)
     else:
-        res = table_manager.set_expense(users_data.table[s_id], datetime.today().strftime('%d.%m.%Y'), expence,
+        res = table_manager.set_expense(users_data.table[s_id], datetime.today().strftime('%d.%m.%Y'), expense,
                                         category, account, comment)
 
     if not res:
         bot.send_message(message.chat.id, 'произошла ошибка, попробуйте еще раз')
     else:
+        if income == 1:
+            users_data.table[s_id]['accounts'][account] += expense
+        else:
+            users_data.table[s_id]['accounts'][account] -= expense
+
         if users_data.table[s_id]['send_for_verific']:
             bot.send_message(message.chat.id,
-                             "добавил следующую запись:\nсумма: " + str(expence) + "\nкатегория: " + category +
+                             "добавил следующую запись:\nсумма: " + str(expense) + "\nкатегория: " + category +
                              "\nсчет: " + account + "\nкомментарий: " + comment)
         else:
             bot.send_message(message.chat.id, 'запись добавлена успешно')
+
+        users_data.update()
 
 
 @bot.message_handler(func=lambda message:
                      str(message.chat.id) in users_data.table.keys() and
                      (users_data.table[str(message.chat.id)]['state'] == 30 or
-                     users_data.table[str(message.chat.id)]['state'] == 31))
+                      users_data.table[str(message.chat.id)]['state'] == 31))
 def adding_category(message):
     if users_data.table[str(message.chat.id)]['state'] == 30:
         major_category = '_out'
@@ -393,6 +415,16 @@ def deleting_all(message):
     users_data.update()
 
 
+@bot.message_handler(func=lambda message:
+                     str(message.chat.id) in users_data.table.keys() and
+                     users_data.table[str(message.chat.id)]['state'] == 11)
+def get_complain(message):
+    s_id = str(message.chat.id)
+    bot.send_message(os.getenv('SUPPORT_CHAT_ID'), '<b>SUPPORT MESSAGE</b>\n' + 'user chat id ' + s_id + '\n' +
+                     message.text, parse_mode='HTML')
+    bot.send_message(message.chat.id, 'сообщение успешно отправлено')
+    users_data.table[s_id]['state'] = 2
+    users_data.update()
 
 
 bot.infinity_polling()
