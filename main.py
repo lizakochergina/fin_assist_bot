@@ -555,7 +555,7 @@ def get_accounts_for_stat(message):
 @bot.message_handler(func=lambda message:
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 15)
-def get_distrib(message):
+def get_parameters(message):
     s_id = str(message.chat.id)
     if message.text == 'отменить действие':
         callback_funcs['cancel'](message.chat.id, users_data.table[s_id], bot)
@@ -750,7 +750,7 @@ def type_accounts_again(message):
 @bot.message_handler(func=lambda message:
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 20)
-def type_accounts_again(message):
+def add_record_cont(message):
     s_id = str(message.chat.id)
     if message.text == 'отменить действие':
         callback_funcs['cancel'](message.chat.id, users_data.table[s_id], bot)
@@ -772,7 +772,7 @@ def type_accounts_again(message):
 @bot.message_handler(func=lambda message:
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 21)
-def type_accounts_again(message):
+def del_record_major(message):
     s_id = str(message.chat.id)
     if message.text == 'отменить действие':
         callback_funcs['cancel'](message.chat.id, users_data.table[s_id], bot)
