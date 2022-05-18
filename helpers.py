@@ -2,15 +2,20 @@ import io
 from googleapiclient.http import MediaIoBaseDownload
 from telebot import types
 from datetime import datetime
+from datetime import date
 from json import JSONDecodeError
 import os
 import json
 from google.oauth2 import service_account
 import googleapiclient.discovery
+from analytics import count_distrib, count_dynamic
+from thefuzz import process
 
 
 class UserData:
     table = {}
+    tmp_table = {}
+    records_table = {}
 
     def __init__(self):
         print('loaded data first time')
@@ -24,6 +29,61 @@ class UserData:
         with open('data.json', 'w') as f:
             json.dump(self.table, f)
 
+    def create_user(self, s_id):
+        self.table[s_id] = {
+            'mail': '',
+            'state': 1,
+            'sheet_link': '',
+            'spreadsheet_id': '',
+            'categories_out': {
+                'супермаркеты': [], 'кафе': [], 'одежда': [], 'аптека': [], 'жкх': [], 'квартира': [],
+                'транспорт': [], 'книги': [], 'кино': []
+            },
+            'categories_in': {
+                'зарплата': []
+            },
+            'key_words_out': dict(),
+            'key_words_in': dict(),
+            'accounts': dict(),
+            'main_acc': '',
+            'subscriptions': dict(),
+            'send_for_verific': True,
+            'last_row_expense': 3,
+            'last_row_income': 3,
+            'today_expense': 0,
+            'today_income': 0,
+            'cur_month_expense': 0,
+            'cur_month_income': 0,
+            'last_month_expense': 0,
+            'last_month_income': 0,
+            'day': date.today().day,
+            'month': date.today().month,
+            'year': date.today().year
+        }
+
+    def create_new_stat(self, s_id, start, end):
+        self.tmp_table[s_id] = {
+            'start_date': start,
+            'end_date': end,
+            'type': '',
+            'full_targets': False,
+            'local_targets': [],
+            'global_targets': [],
+            'accounts': set()
+        }
+
+    def clear_stat(self, s_id):
+        self.tmp_table[s_id] = {}
+
+    def save_record(self, s_id, income, expense, category, account, comment):
+        self.records_table[s_id] = {
+            'income': income,
+            'expense': expense,
+            'category': category,
+            'account': account,
+            'comment': comment
+        }
+
 
 class TableManager:
     sheet_service = None
@@ -34,6 +94,10 @@ class TableManager:
         "sheets": [
             {"properties": {"gridProperties": {"columnCount": 11, "frozenRowCount": 2}, "sheetId": 0}}
         ]
+    }
+    ranges = {
+        'expense': {'left': 'A', 'right': 'E'},
+        'income': {'left': 'G', 'right': 'K'},
     }
 
     def __init__(self):
@@ -56,6 +120,49 @@ class TableManager:
             status, done = downloader.next_chunk()
             print("Download %.2f%%." % (status.progress() * 100.0))
         fh.close()
+
+    def delete_last(self, user, kind):
+        row = str(user['last_row_' + kind] - 1)
+        response, date, summa, acc = self.get_values(user, kind)
+        if response:
+            try:
+                self.sheet_service.spreadsheets().values().batchUpdate(spreadsheetId=user['spreadsheet_id'], body={
+                    "value_input_option": "USER_ENTERED",
+                    "data": [
+                        {
+                            "range": "Лист1!" + self.ranges[kind]['left'] + row + ":" +
+                                     self.ranges[kind]['right'] + row,
+                            "majorDimension": "ROWS",
+                            "values": [
+                                ['', '', '', '', '']
+                            ]
+                        }
+                    ]
+                }).execute()
+                user['last_row_' + kind] -= 1
+                return True, date, float(summa), acc
+            except BaseException as e:
+                print("could't set expense")
+                print(e)
+                return False, None, None, None
+        else:
+            return False, None, None, None
+
+    def get_values(self, user, kind):
+        row = str(user['last_row_' + kind] - 1)
+        try:
+            response = self.sheet_service.spreadsheets().values().get(
+                spreadsheetId=user['spreadsheet_id'],
+                range="Лист1!" + self.ranges[kind]['left'] + row + ":" + self.ranges[kind]['right'] + row,
+                majorDimension="ROWS",
+            ).execute()
+            print(response['values'])
+            date, summa, categ, comment, acc = response['values'][0]
+            return True, date, summa, acc
+        except BaseException as e:
+            print("could't get values")
+            print(e)
+            return False, None, None, None
 
     def set_expense(self, user, date, expense, category, account, comment):
         try:
@@ -246,31 +353,6 @@ class TableManager:
         return merge_cells
 
 
-def create_user():
-    print('def create_user')
-    return {
-        'mail': '',
-        'state': 1,
-        'sheet_link': '',
-        'spreadsheet_id': '',
-        'categories_out': {
-            'супермаркеты': [], 'кафе': [], 'одежда': [], 'аптека': [], 'жкх': [], 'квартира': [],
-            'транспорт': [], 'книги': [], 'кино': []
-        },
-        'categories_in': {
-            'зарплата': []
-        },
-        'key_words_out': dict(),
-        'key_words_in': dict(),
-        'accounts': dict(),
-        'main_acc': '',
-        'subscriptions': dict(),
-        'send_for_verific': True,
-        'last_row_expense': 3,
-        'last_row_income': 3
-    }
-
-
 def watch_categ(chat_id, user, bot):
     print('got callback watch_categ')
 
@@ -426,11 +508,15 @@ def format_expense(text, user):  # ret (income/outcome, expense, category, acc, 
         items[0] = items[0][1:]
         major = '_in'
 
+    if items[0] < '0' or items[0] > '9':
+        print('too many symbols')
+        return False, False, False, False, False, False
+
     try:
         expense = int(items[0])
     except ValueError:
         print("value err")
-        return False, False, False, False, False
+        return False, False, False, False, False, False
 
     category = items[1]
     print("\tcategories: ", end='')
@@ -439,12 +525,41 @@ def format_expense(text, user):  # ret (income/outcome, expense, category, acc, 
     print(user['key_words' + major])
     print("\tcur category: " + category)
     i = 2
+    maybe_categ = ''
+    ratio = 0
+    k = -1
     while category not in user['categories' + major].keys() and category not in user['key_words' + major].keys():
+        print(category, end=' ')
+
+        cur_maybe_categ, cur_ratio = process.extractOne(category, user['categories' + major].keys())
+        print(cur_maybe_categ, cur_ratio, end=' ')
+        if cur_ratio > ratio:
+            ratio = cur_ratio
+            maybe_categ = cur_maybe_categ
+            k = i
+
+        if user['key_words' + major].keys():
+            cur_maybe_categ, cur_ratio = process.extractOne(category, user['key_words' + major].keys())
+            print(cur_maybe_categ, cur_ratio, end=' ')
+            if cur_ratio > ratio:
+                ratio = cur_ratio
+                maybe_categ = cur_maybe_categ
+                k = i
+
         if i == len(items):
-            print("cant define category")
-            return False, False, False, False, False
-        category += items[i]
+            break
+
+        category += ' ' + items[i]
         i += 1
+
+    print('k, maybe categ', k, maybe_categ)
+
+    approx_category = False
+    if category not in user['categories' + major].keys() and category not in user['key_words' + major].keys():
+        category = maybe_categ
+        i = k
+        approx_category = True
+
     if category in user['key_words' + major].keys():
         category = user['key_words' + major][category] + ", " + category
 
@@ -452,7 +567,7 @@ def format_expense(text, user):  # ret (income/outcome, expense, category, acc, 
     comment = ''
 
     if i == len(items):
-        return income, expense, category, account, comment
+        return income, expense, category, account, comment, approx_category
 
     if items[i] in user['accounts'].keys():
         account = items[i]
@@ -462,7 +577,7 @@ def format_expense(text, user):  # ret (income/outcome, expense, category, acc, 
         comment += items[i] + ' '
         i += 1
 
-    return income, expense, category, account, comment
+    return income, expense, category, account, comment, approx_category
 
 
 def get_instruction(chat_id, user, bot):
@@ -474,7 +589,122 @@ def get_support(chat_id, user, bot):
     user['state'] = 11
 
 
+def update_cur_stat(user, kind, expense, today):
+    if today.day == user['day'] and today.month == user['month'] and today.year == user['year']:
+        user['today' + kind] += expense
+        user['cur_month' + kind] += expense
+    else:
+        user['today' + kind] = expense
+        user['day'] = today.day
+
+        if (user['year'] == today.year and user['month'] + 1 == today.month) or (
+                user['year'] + 1 == today.year and user['month'] == 12 and today.month == 1):
+            user['last_month_expense'] = user['cur_month_expense']
+            user['last_month_income'] = user['cur_month_income']
+            user['cur_month_expense'] = 0
+            user['cur_month_income'] = 0
+            user['cur_month' + kind] = expense
+        elif user['year'] == today.year and user['month'] == today.month:
+            user['cur_month' + kind] += expense
+        else:
+            user['last_month_expense'] = 0
+            user['last_month_income'] = 0
+            user['cur_month_expense'] = 0
+            user['cur_month_income'] = 0
+            user['cur_month' + kind] = expense
+
+        user['month'] = today.month
+        user['year'] = today.month
+
+
+def update_cur_stat_after_del(user, kind, summa, today):
+    if today.day == user['day'] and today.month == user['month'] and today.year == user['year']:
+        user['today' + kind] += summa
+        user['cur_month' + kind] += summa
+    elif today.month == user['month'] and today.year == user['year']:
+        user['cur_month' + kind] += summa
+    elif (today.month == 12 and user['month'] == 1 and today.year + 1 == user['year']) or (
+            today.month + 1 == user['month'] and today.year == user['year']):
+        user['last_month' + kind] += summa
+
+
+def cancel(chat_id, user, bot):
+    bot.send_message(chat_id, 'действие отменено')
+    user['state'] = 2
+
+
+def get_categories_for_analytics(chat_id, user, bot):
+    keyboard = types.ReplyKeyboardMarkup(row_width=1, one_time_keyboard=True, resize_keyboard=True)
+    keyboard.add(types.KeyboardButton('отменить действие'))
+    user['state'] = 16
+    bot.send_message(chat_id, 'напиши через запятую категории и ключевые слова, ' +
+                     'которые ты хочешь увидеть в распределении. если ты хочешь, чтобы ключевые слова некоторой ' +
+                     'категории учитывались отдельно, напиши эту категорию с знаком' +
+                     '<b>+</b>, например, [кафе+]', parse_mode='HTML', reply_markup=keyboard)
+
+
+def get_dynamic(chat_id, ss_id, user, bot, table_manager):
+    print(user)
+    bot.send_message(chat_id, 'analyze...')
+    bot.send_chat_action(chat_id, 'upload_photo')
+    table_manager.download_table(ss_id)
+    res = count_dynamic(ss_id, user)
+    if not res.startswith('нет трат'):
+        img = open(ss_id + '.png', 'rb')
+        bot.send_photo(chat_id, img)
+        img.close()
+    bot.send_message(chat_id, res, parse_mode='HTML')
+
+
+def get_distrib(chat_id, ss_id, user, bot, table_manager):
+    print(user)
+    bot.send_message(chat_id, 'analyze...')
+    bot.send_chat_action(chat_id, 'upload_photo')
+    table_manager.download_table(ss_id)
+    res_str = count_distrib(ss_id, user)
+    if not res_str.startswith('нет трат'):
+        img = open(ss_id + '.png', 'rb')
+        bot.send_photo(chat_id, img)
+        img.close()
+    bot.send_message(chat_id, res_str, parse_mode='HTML')
+
+
+def get_accs_for_analytics(chat_id, user, bot):
+    keyboard = types.ReplyKeyboardMarkup(row_width=1, one_time_keyboard=True, resize_keyboard=True)
+    keyboard.add(types.KeyboardButton('отменить действие'))
+    user['state'] = 18
+    bot.send_message(chat_id, 'напиши через запятую счета, которые ты хочешь увидеть в распределении\n',
+                     reply_markup=keyboard)
+
+
+def add_new_record(chat_id, user, bot, table_manager, income, summa, category, account, comment):
+    cur_date = datetime.today()
+    if income == 1:
+        res = table_manager.set_income(user, cur_date.strftime('%d.%m.%Y'), summa, category, account, comment)
+    else:
+        res = table_manager.set_expense(user, cur_date.strftime('%d.%m.%Y'), summa, category, account, comment)
+
+    if not res:
+        bot.send_message(chat_id, 'произошла ошибка, попробуйте еще раз')
+    else:
+        if income == 1:
+            user['accounts'][account] += summa
+            update_cur_stat(user, '_income', summa, cur_date)
+        else:
+            user['accounts'][account] -= summa
+            update_cur_stat(user, '_expense', summa, cur_date)
+
+        if user['send_for_verific']:
+            bot.send_message(chat_id,
+                             "добавил следующую запись:\nсумма: " + str(summa) + "\nкатегория: " + category +
+                             "\nсчет: " + account + "\nкомментарий: " + comment)
+        else:
+            bot.send_message(chat_id, 'запись добавлена успешно')
+
+
 callback_funcs = {'watch_categ': watch_categ, 'add_categ_out': add_categ_out, 'add_categ_in': add_categ_in,
                   'del_categ': del_categ, 'watch_acc': watch_acc, 'set_main_acc': set_main_acc, 'add_acc': add_acc,
                   'del_acc': del_acc, 'watch_sub': watch_sub, 'add_sub': add_sub, 'del_sub': del_sub,
-                  'instruction': get_instruction, 'support': get_support}
+                  'instruction': get_instruction, 'support': get_support, 'get_distrib': get_distrib,
+                  'get_dynamic': get_dynamic, 'cancel': cancel, 'get_accs_for_analytics': get_accs_for_analytics,
+                  'get_categories_for_analytics': get_categories_for_analytics}
