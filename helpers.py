@@ -560,7 +560,7 @@ def update_cur_stat(user, kind, expense, today):
             user['cur_month' + kind] = expense
 
         user['month'] = today.month
-        user['year'] = today.month
+        user['year'] = today.year
 
 
 def update_cur_stat_after_del(user, kind, summa, today):
