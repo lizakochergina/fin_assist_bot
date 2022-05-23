@@ -89,7 +89,7 @@ def count_dynamic(ss_id, user):
         if total == 0:
             return 'Нет трат по по заданным категориям и периоду '
         df = df.groupby(['date_out'], as_index=False)['sum_out'].sum().set_index('date_out')
-        plot = df['sum_out'].plot(color='cornflowerblue', label='все траты',
+        plot = df['sum_out'].plot(color='cornflowerblue', label='все траты', style='.-',
                                   title='динамика трат за ' + user['start_date'].strftime('%d.%m.%Y') + ' - ' +
                                         user['end_date'].strftime('%d.%m.%Y'))
         fig = plot.get_figure()
@@ -117,9 +117,9 @@ def count_dynamic(ss_id, user):
                 res_str += target + ' ' + "{:.2f}".format(summa) + '\n'
                 total += summa
                 if not ax:
-                    ax = df.loc[df['categ_out'] == target]['sum_out'].plot(label=target, color=color)
+                    ax = df.loc[df['categ_out'] == target]['sum_out'].plot(label=target, color=color, style='.-',)
                 else:
-                    df.loc[df['categ_out'] == target]['sum_out'].plot(ax=ax, label=target)
+                    df.loc[df['categ_out'] == target]['sum_out'].plot(ax=ax, label=target, style='.-',)
 
         if total == 0:
             return 'Нет трат по по заданным категориям и периоду'
