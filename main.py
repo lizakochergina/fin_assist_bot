@@ -514,7 +514,6 @@ def get_accounts_for_stat(message):
         keyboard.add(telebot.types.KeyboardButton('отменить действие'))
         bot.send_message(message.chat.id, 'Выбери категории', reply_markup=keyboard)
     elif message.text == 'указать счета':
-        callback_funcs['watch_acc'](message.chat.id, users_data.table[s_id], bot)
         callback_funcs['get_accs_for_analytics'](message.chat.id, users_data.table[s_id], bot)
         users_data.update()
     else:
@@ -701,7 +700,6 @@ def type_accounts_again(message):
         users_data.update()
         return
     elif message.text == 'написать счета заново':
-        callback_funcs['watch_acc'](message.chat.id, users_data.table[s_id], bot)
         callback_funcs['get_accs_for_analytics'](message.chat.id, users_data.table[s_id], bot)
         users_data.update()
     elif message.text == 'все равно получить аналитику':

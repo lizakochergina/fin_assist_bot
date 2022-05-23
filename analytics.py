@@ -25,7 +25,7 @@ def count_distrib(ss_id, user):
     df = df.drop(index=list(range(end, len(df)))).drop(index=list(range(begin)))
 
     if user['accounts']:
-        df = df.loc[~df['acc_out'].isin(user['accounts'])]
+        df = df.loc[df['acc_out'].isin(user['accounts'])]
 
     targets = {}
     total = 0
@@ -80,11 +80,9 @@ def count_dynamic(ss_id, user):
     df = df.drop(index=list(range(end, len(df)))).drop(index=list(range(begin)))
 
     if user['accounts']:
-        df = df.loc[~df['acc_out'].isin(user['accounts'])]
+        df = df.loc[df['acc_out'].isin(user['accounts'])]
 
     if user['full_targets']:
-        print(df)
-        print(df['sum_out'])
         total = sum(df['sum_out'])
         if total == 0:
             return 'Нет трат по по заданным категориям и периоду '
@@ -98,7 +96,6 @@ def count_dynamic(ss_id, user):
         plt.ylabel('сумма')
         fig.savefig(ss_id + '.png', bbox_inches='tight')
         plt.clf()
-        print(total)
         return '<b>всего</b> ' + "{:.2f}".format(total)
     else:
         ax = None
