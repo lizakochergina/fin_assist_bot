@@ -7,20 +7,40 @@ from helpers import UserData, TableManager, callback_funcs, format_expense, upda
 bot = telebot.TeleBot(os.getenv('TELEGRAM_TOKEN'), parse_mode=None)
 users_data = UserData()
 table_manager = TableManager()
+wrong_input = 'Некорректые данные. Попробуй начать заново или воспользуйся командой /help.'
+error_occur = 'Произошла ошибка. Попробуй начать заново или воспользуйся командой /help.'
 
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     s_id = str(message.chat.id)
-    print('cur id ' + s_id)
-    print(users_data.table)
     if s_id in users_data.table.keys() and users_data.table[s_id]['sheet_link'] != '':
-        bot.send_message(message.chat.id, "у нас уже есть таблица для тебя\n" + users_data.table[s_id]['sheet_link'])
+        bot.send_message(message.chat.id, "У тебя уже есть таблица\n" + users_data.table[s_id]['sheet_link'])
         users_data.table[s_id]['state'] = 2
     else:
-        bot.send_message(message.chat.id, "привет! для создания таблицы пришли, пожалуйста, свою gmail почту")
+        bot.send_message(message.chat.id, "Привет! Для создания таблицы пришли свою gmail почту.")
         users_data.create_user(s_id)
     users_data.update()
+
+
+@bot.message_handler(commands=['help'])
+def support(message):
+    keyboard = [
+        [
+            telebot.types.InlineKeyboardButton("инструкция", callback_data='instruction'),
+        ],
+        [
+            telebot.types.InlineKeyboardButton("написать сообщение в поддержку", callback_data='support')
+        ]
+    ]
+
+    bot.send_message(message.chat.id, 'Выбери, что ты хочешь сделать',
+                     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
+
+
+@bot.message_handler(func=lambda message: str(message.chat.id) not in users_data.table.keys())
+def action_for_new(message):
+    bot.send_message(message.chat.id, "Привет! Ты еще не пользуешься этим ботом. Отправь /start.")
 
 
 @bot.message_handler(commands=['reset'])
@@ -30,7 +50,7 @@ def reset(message):
     keyboard.add(telebot.types.KeyboardButton('удалить данные'))
     keyboard.add(telebot.types.KeyboardButton('отмена'))
     users_data.table[s_id]['state'] = 10
-    bot.send_message(message.chat.id, "подтверди безвозвратное удаление данных", reply_markup=keyboard)
+    bot.send_message(message.chat.id, "Подтверди безвозвратное удаление данных.", reply_markup=keyboard)
     users_data.update()
 
 
@@ -38,7 +58,7 @@ def reset(message):
 def table(message):
     s_id = str(message.chat.id)
     if users_data.table[s_id]['sheet_link'] == '':
-        bot.send_message(message.chat.id, "таблица еще не создана. введи команду /start")
+        bot.send_message(message.chat.id, "Таблица еще не создана. введи команду /start")
     else:
         bot.send_message(message.chat.id, users_data.table[s_id]['sheet_link'])
 
@@ -59,21 +79,6 @@ def del_record(message):
     users_data.table[s_id]['state'] = 21
     users_data.update()
     bot.send_message(message.chat.id, 'Выбери, какую последнюю запись ты хочешь удалить.', reply_markup=keyboard)
-
-
-@bot.message_handler(commands=['help'])
-def support(message):
-    keyboard = [
-        [
-            telebot.types.InlineKeyboardButton("инструкция", callback_data='instruction'),
-        ],
-        [
-            telebot.types.InlineKeyboardButton("написать сообщение в поддержку", callback_data='support')
-        ]
-    ]
-
-    bot.send_message(message.chat.id, 'выбери, что ты хочешь сделать',
-                     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
 
 
 @bot.message_handler(commands=['brief'])
@@ -100,7 +105,7 @@ def get_stat(message):
     s_id = str(message.chat.id)
     users_data.table[s_id]['state'] = 12
     users_data.update()
-    bot.send_message(message.chat.id, 'необходимо выбрать период. отправь две даты в формате\nдд.мм.гггг - дд.мм.гггг')
+    bot.send_message(message.chat.id, 'Необходимо выбрать период. Отправь две даты в формате\nдд.мм.гггг - дд.мм.гггг')
 
 
 @bot.message_handler(commands=['categories'])
@@ -110,11 +115,11 @@ def categories(message):
             telebot.types.InlineKeyboardButton("посмотреть категории", callback_data='watch_categ'),
         ],
         [
-            telebot.types.InlineKeyboardButton("добавить категорию,\nключевое слово расхода",
+            telebot.types.InlineKeyboardButton("добавить категорию расхода",
                                                callback_data='add_categ_out')
         ],
         [
-            telebot.types.InlineKeyboardButton("добавить категорию,\nключевое слово дохода",
+            telebot.types.InlineKeyboardButton("добавить категорию дохода",
                                                callback_data='add_categ_in')
         ],
         [
@@ -122,25 +127,7 @@ def categories(message):
         ]
     ]
 
-    bot.send_message(message.chat.id, 'выбери, что ты хочешь сделать',
-                     reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
-
-
-@bot.message_handler(commands=['subs'])
-def subscribes(message):
-    keyboard = [
-        [
-            telebot.types.InlineKeyboardButton("посмотреть подписки", callback_data='watch_sub'),
-        ],
-        [
-            telebot.types.InlineKeyboardButton('добавить подписку', callback_data='add_sub')
-        ],
-        [
-            telebot.types.InlineKeyboardButton("удалить подписку", callback_data='del_sub')
-        ]
-    ]
-
-    bot.send_message(message.chat.id, 'выбери, что ты хочешь сделать',
+    bot.send_message(message.chat.id, 'Выбери, что ты хочешь сделать.',
                      reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
 
 
@@ -161,18 +148,15 @@ def accounts(message):
         ]
     ]
 
-    bot.send_message(message.chat.id, 'выбери, что ты хочешь сделать',
+    bot.send_message(message.chat.id, 'Выбери, что ты хочешь сделать.',
                      reply_markup=telebot.types.InlineKeyboardMarkup(keyboard))
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ['watch_categ', 'add_categ_out', 'add_categ_in', 'del_categ',
-                                                            'watch_acc', 'set_main_acc', 'add_acc', 'del_acc',
-                                                            'watch_sub', 'add_sub', 'del_sub', 'instruction',
-                                                            'support', 'cost_distrib', 'cost_dyn', 'cancel'])
+                                                            'watch_acc', 'set_main_acc', 'add_acc', 'del_acc', 'cancel',
+                                                            'instruction', 'support', 'cost_distrib', 'cost_dyn'])
 def test_callback(call):
     s_id = str(call.message.chat.id)
-    print('got callback')
-    print('data ' + call.data)
     callback_funcs[call.data](call.message.chat.id, users_data.table[s_id], bot)
     bot.answer_callback_query(call.message.chat.id, text='answered callback ' + s_id)
     users_data.update()
@@ -183,20 +167,19 @@ def test_callback(call):
                      users_data.table[str(message.chat.id)]['state'] == 1)
 def getting_email(message):
     s_id = str(message.chat.id)
-    print('creating spreadsheet')
     last_index = message.text.find('@gmail.com')
     if last_index == -1 or last_index == 0 or last_index != len(message.text) - len('@gmail.com'):
-        bot.send_message(message.chat.id, 'почта некорректная, попробуй еще раз')
+        bot.send_message(message.chat.id, 'Почта некорректная, попробуй еще раз.')
     else:
         users_data.table[s_id]['mail'] = message.text
         created = table_manager.create_table(users_data.table[s_id])
         if created:
-            bot.send_message(message.chat.id, 'таблица готова\n' + 'https://docs.google.com/spreadsheets/d/' +
-                             users_data.table[s_id]['spreadsheet_id'] + '\nдалее необходимо настроить таблицу. ' +
-                             'прочитай, пожалуйста, инструкцию https://telegra.ph/finance-bot-05-15')
+            bot.send_message(message.chat.id, 'Таблица готова\n' + 'https://docs.google.com/spreadsheets/d/' +
+                             users_data.table[s_id]['spreadsheet_id'] + '\nДалее необходимо настроить категории и счета.' +
+                             'Прочитай, пожалуйста, инструкцию https://telegra.ph/finance-bot-05-15')
             users_data.table[s_id]['state'] = 2
         else:
-            bot.send_message(message.chat.id, 'не получилось создать таблицу, попробуй перезапустить бота')
+            bot.send_message(message.chat.id, 'Не удалось создать таблицу, попробуй перезапустить бота.')
             users_data.table.pop(s_id)
 
         users_data.update()
@@ -206,19 +189,15 @@ def getting_email(message):
                      str(message.chat.id) in users_data.table.keys() and
                      users_data.table[str(message.chat.id)]['state'] == 2)
 def get_expense(message):
-    print("got an expense")
-    print("\ttext: " + message.text)
-    print("\titems: ", end='')
-    print(message.text.split())
-
     s_id = str(message.chat.id)
+
     if users_data.table[s_id]['main_acc'] == '':
-        bot.send_message(message.chat.id, 'не установлен основной счет')
+        bot.send_message(message.chat.id, 'Не установлен основной счет.')
         return
 
     income, expense, category, account, comment, approx_category = format_expense(message.text, users_data.table[s_id])
     if not expense:
-        bot.send_message(message.chat.id, 'некорректные данные')
+        bot.send_message(message.chat.id, wrong_input)
         return
 
     if not approx_category:
@@ -242,31 +221,26 @@ def get_expense(message):
                      (users_data.table[str(message.chat.id)]['state'] == 30 or
                       users_data.table[str(message.chat.id)]['state'] == 31))
 def adding_category(message):
-    if users_data.table[str(message.chat.id)]['state'] == 30:
+    s_id = str(message.chat.id)
+
+    if users_data.table[s_id]['state'] == 30:
         major_category = '_out'
     else:
         major_category = '_in'
 
-    s_id = str(message.chat.id)
     items = message.text.split(';')
-    print(message.text)
-    print(items)
     for item in items:
         k = item.find('-')
         if k != -1:
             cur_category = item[:k].strip(' ')
-            print('cur category ' + cur_category)
             key_words = item[k + 1:].split(',')
             if cur_category not in users_data.table[s_id]['categories' + major_category].keys():
                 users_data.table[s_id]['categories' + major_category][cur_category] = []
-            print('key words: ', end='')
-            print(key_words)
             for key_word in key_words:
                 users_data.table[s_id]['categories' + major_category][cur_category].append(key_word.strip(' '))
                 users_data.table[s_id]['key_words' + major_category][key_word.strip(' ')] = cur_category
         else:
-            cur_category = item.strip(' ')
-            print('cur category ' + cur_category)
+            cur_category = item.strip()
             if cur_category not in users_data.table[s_id]['categories' + major_category].keys():
                 users_data.table[s_id]['categories' + major_category][cur_category] = []
 
@@ -279,9 +253,8 @@ def adding_category(message):
                      users_data.table[str(message.chat.id)]['state'] == 4)
 def deleting_category(message):
     s_id = str(message.chat.id)
+
     items = [item.strip() for item in message.text.split(',')]
-    print(message.text)
-    print(items)
     non_del = ''
     for item in items:
         if item[0] == '+':
@@ -302,7 +275,7 @@ def deleting_category(message):
             non_del += item + '\n'
 
     if non_del != '':
-        bot.send_message(message.chat.id, 'не получилось найти и удалить следующие категории:\n' + non_del)
+        bot.send_message(message.chat.id, 'Не удалось найти и удалить следующие категории:\n' + non_del)
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
@@ -319,12 +292,11 @@ def setting_main_acc(message):
         balance = items[-1]
         new_acc = message.text[:-len(balance)].strip()
         try:
-            users_data.table[s_id]['accounts'][new_acc] = int(balance)
+            users_data.table[s_id]['accounts'][new_acc] = float(balance)
             users_data.table[s_id]['main_acc'] = new_acc
         except ValueError:
-            print("def setting_main_acc, can't cast balance")
             users_data.table[s_id]['state'] = 2
-            bot.send_message(message.chat.id, 'произошла ошибка, попробуй еще раз')
+            bot.send_message(message.chat.id, wrong_input)
             return
     else:
         users_data.table[s_id]['main_acc'] = acc
@@ -340,19 +312,17 @@ def adding_acc(message):
     s_id = str(message.chat.id)
     undef = ''
     items = message.text.split(',')
-    print(items)
     for item in items:
         balance = item.split()[-1].strip()
         acc = item[:-len(balance)].strip()
-        print(item, balance, acc)
         try:
-            users_data.table[s_id]['accounts'][acc] = int(balance)
+            users_data.table[s_id]['accounts'][acc] = float(balance)
         except ValueError:
-            print("def adding_acc, can't cast balance")
+            print("def adding_acc, can't cast balance as " + balance)
             undef += acc + '\n'
 
     if undef != '':
-        bot.send_message(message.chat.id, 'не удалось установить следующие счета:\n' + undef)
+        bot.send_message(message.chat.id, 'Не удалось установить следующие счета:\n' + undef)
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
@@ -373,61 +343,13 @@ def deleting_acc(message):
         if users_data.table[s_id]['main_acc'] == '':
             users_data.update()
             bot.send_message(message.chat.id,
-                             'ты удалил основной счет. пожалуйста, установи новый основной счет')
+                             'Ты удалил основной счет. Необходимо установить новый основной счет')
             callback_funcs['set_main_acc'](message.chat.id, users_data.table[s_id], bot)
-        else:
-            users_data.table[s_id]['state'] = 2
 
-    users_data.table[s_id]['state'] = 2
-    users_data.update()
+        users_data.table[s_id]['state'] = 2
+    else:
+        callback_funcs['cancel'](message.chat.id, users_data.table[s_id], bot)
 
-
-@bot.message_handler(func=lambda message:
-                     str(message.chat.id) in users_data.table.keys() and
-                     users_data.table[str(message.chat.id)]['state'] == 8)
-def adding_sub(message):
-    s_id = str(message.chat.id)
-    items = message.text.split(',')
-    for item in items:
-        sub = item.split()
-        today = datetime.today()
-        new_day = int(sub[0])
-        print('day ' + sub[0])
-        print('today ' + str(today.day))
-        if new_day < today.day:
-            new_year = today.year + today.month // 12
-            new_month = (today.month % 12) + 1
-            today = today.replace(day=new_day, month=new_month, year=new_year)
-        else:
-            today = today.replace(day=new_day)
-        print('new date ' + today.strftime('%d.%m.%Y'))
-        print(today.day, today.month, today.year)
-        name = ' '.join(sub[2:]).strip()
-        print('new sub: ' + '\'' + name + '\'  ' + today.strftime('%d.%m.%Y') + '  ' + sub[1])
-        users_data.table[s_id]['subscriptions'][name] = {'date': today.strftime('%d.%m.%Y'), 'cost': int(sub[1])}
-
-    users_data.table[s_id]['state'] = 2
-    users_data.update()
-
-
-@bot.message_handler(func=lambda message:
-                     str(message.chat.id) in users_data.table.keys() and
-                     users_data.table[str(message.chat.id)]['state'] == 9)
-def deleting_sub(message):
-    s_id = str(message.chat.id)
-    items = [item.strip() for item in message.text.split(',')]
-    if items[0] != 'отменить действие':
-        not_found = ''
-        for item in items:
-            if item in users_data.table[s_id]['subscriptions'].keys():
-                users_data.table[s_id]['subscriptions'].pop(item)
-            else:
-                not_found += ' - ' + item + '\n'
-        if not_found != '':
-            bot.send_message(message.chat.id,
-                             'следующие подписки не были найдены:\n' + not_found)
-
-    users_data.table[s_id]['state'] = 2
     users_data.update()
 
 
@@ -439,8 +361,9 @@ def deleting_all(message):
     if message.text == 'удалить данные':
         table_manager.delete_table(users_data.table[s_id]['spreadsheet_id'])
         users_data.table.pop(s_id)
+        bot.send_message(message.chat.id, 'Данные удалены.')
     else:
-        users_data.table[s_id]['state'] = 2
+        callback_funcs['cancel'](message.chat.id, users_data.table[s_id], bot)
     users_data.update()
 
 
@@ -451,7 +374,7 @@ def get_complain(message):
     s_id = str(message.chat.id)
     bot.send_message(os.getenv('SUPPORT_CHAT_ID'), '<b>SUPPORT MESSAGE</b>\n' + 'user chat id ' + s_id + '\n' +
                      message.text, parse_mode='HTML')
-    bot.send_message(message.chat.id, 'сообщение успешно отправлено')
+    bot.send_message(message.chat.id, 'Сообщение успешно отправлено.')
     users_data.table[s_id]['state'] = 2
     users_data.update()
 
@@ -462,10 +385,9 @@ def get_complain(message):
 def get_date(message):
     s_id = str(message.chat.id)
     items = message.text.split('-')
-    print(items)
 
     if len(items) != 2:
-        bot.send_message(message.chat.id, 'некорректные данные')
+        bot.send_message(message.chat.id, wrong_input)
         users_data.table[s_id]['state'] = 2
         users_data.update()
         return
@@ -474,11 +396,11 @@ def get_date(message):
         start_date = datetime.strptime(items[0].strip(), '%d.%m.%Y')
         end_date = datetime.strptime(items[1].strip(), '%d.%m.%Y')
     except ValueError:
-        bot.send_message(message.chat.id, 'некоректные данные')
+        bot.send_message(message.chat.id, wrong_input)
         return
 
     if start_date > end_date:
-        bot.send_message(message.chat.id, 'первая дата должна быть меньше второй')
+        bot.send_message(message.chat.id, 'Первая дата должна быть меньше второй.')
         return
 
     users_data.create_new_stat(s_id, start_date, end_date)
@@ -489,7 +411,7 @@ def get_date(message):
     keyboard.add(telebot.types.KeyboardButton('распределение трат'))
     keyboard.add(telebot.types.KeyboardButton('динамика трат'))
     keyboard.add(telebot.types.KeyboardButton('отменить действие'))
-    bot.send_message(message.chat.id, 'выбери, что ты хочешь получить', reply_markup=keyboard)
+    bot.send_message(message.chat.id, 'Выбери, что ты хочешь получить.', reply_markup=keyboard)
 
 
 @bot.message_handler(func=lambda message:
@@ -497,7 +419,6 @@ def get_date(message):
                      users_data.table[str(message.chat.id)]['state'] == 13)
 def get_distrib(message):
     s_id = str(message.chat.id)
-    print(message.text)
     if message.text == 'отменить действие':
         callback_funcs['cancel'](message.chat.id, users_data.table[s_id], bot)
         users_data.update()
@@ -507,7 +428,7 @@ def get_distrib(message):
     elif message.text == 'динамика трат':
         users_data.tmp_table[s_id]['type'] = 'get_dynamic'
     else:
-        bot.send_message(message.chat.id, 'некорректные данные, необходимо начать заново')
+        bot.send_message(message.chat.id, wrong_input)
         users_data.table[s_id]['state'] = 2
         users_data.update()
         return
@@ -516,7 +437,7 @@ def get_distrib(message):
     keyboard.add(telebot.types.KeyboardButton('все'))
     keyboard.add(telebot.types.KeyboardButton('указать счета'))
     keyboard.add(telebot.types.KeyboardButton('отменить действие'))
-    bot.send_message(message.chat.id, 'выбери счета, по которым хочешь получить аналитику', reply_markup=keyboard)
+    bot.send_message(message.chat.id, 'Выбери счета, по которым хочешь получить аналитику.', reply_markup=keyboard)
     users_data.table[s_id]['state'] = 14
     users_data.update()
 
@@ -526,7 +447,6 @@ def get_distrib(message):
                      users_data.table[str(message.chat.id)]['state'] == 14)
 def get_accounts_for_stat(message):
     s_id = str(message.chat.id)
-    print(message.text)
     if message.text == 'отменить действие':
         callback_funcs['cancel'](message.chat.id, users_data.table[s_id], bot)
         users_data.update()
@@ -540,13 +460,13 @@ def get_accounts_for_stat(message):
         keyboard.add(telebot.types.KeyboardButton('все категории'))
         keyboard.add(telebot.types.KeyboardButton('указать категории'))
         keyboard.add(telebot.types.KeyboardButton('отменить действие'))
-        bot.send_message(message.chat.id, 'выбери категории', reply_markup=keyboard)
+        bot.send_message(message.chat.id, 'Выбери категории', reply_markup=keyboard)
     elif message.text == 'указать счета':
         callback_funcs['watch_acc'](message.chat.id, users_data.table[s_id], bot)
         callback_funcs['get_accs_for_analytics'](message.chat.id, users_data.table[s_id], bot)
         users_data.update()
     else:
-        bot.send_message(message.chat.id, 'некорректные данные, необходимо начать заново')
+        bot.send_message(message.chat.id, wrong_input)
         users_data.table[s_id]['state'] = 2
         users_data.update()
         return
@@ -580,7 +500,7 @@ def get_parameters(message):
         callback_funcs['get_categories_for_analytics'](message.chat.id, users_data.table[s_id], bot)
         users_data.update()
     else:
-        bot.send_message(message.chat.id, 'некоректные данные')
+        bot.send_message(message.chat.id, wrong_input)
         users_data.table[s_id]['state'] = 2
         users_data.update()
         return
@@ -626,20 +546,20 @@ def get_categories_for_stat(message):
 
         error_str = ''
         if not users_data.tmp_table[s_id]['local_targets'] and not users_data.tmp_table[s_id]['global_targets']:
-            error_str = 'слишком мало категорий'
+            error_str = 'Слишком мало категорий'
 
         if non_def != '':
             if error_str != '':
-                error_str += ' и '
+                error_str += ' и не удалось определить следующие категории:\n' + non_def
             else:
                 keyboard.add(telebot.types.KeyboardButton('все равно получить аналитику'))
-            error_str += 'не удалось определить следующие категории:\n' + non_def
+                error_str += 'Не удалось определить следующие категории:\n' + non_def
 
         keyboard.add(telebot.types.KeyboardButton('написать категории заново'))
         keyboard.add(telebot.types.KeyboardButton('отменить действие'))
         users_data.table[s_id]['state'] = 17
         users_data.update()
-        bot.send_message(message.chat.id, error_str + '\nвыбери, что ты хочешь сделать', reply_markup=keyboard)
+        bot.send_message(message.chat.id, error_str + '\nВыбери, что ты хочешь сделать', reply_markup=keyboard)
 
 
 @bot.message_handler(func=lambda message:
@@ -662,7 +582,7 @@ def type_categories_again(message):
                                                            users_data.tmp_table[s_id], bot, table_manager)
         users_data.clear_stat(s_id)
     else:
-        bot.send_message(message.chat.id, 'некорректные данные')
+        bot.send_message(message.chat.id, wrong_input)
         users_data.table[s_id]['state'] = 2
         users_data.update()
         return
@@ -682,7 +602,7 @@ def get_accs_for_stat(message):
     items = [item.strip() for item in message.text.split(',')]
     for item in items:
         if item in users_data.table[s_id]['accounts'].keys():
-            users_data.tmp_table[s_id]['accounts'].append(item)
+            users_data.tmp_table[s_id]['accounts'].add(item)
         else:
             non_def += item + '\n'
 
@@ -697,26 +617,26 @@ def get_accs_for_stat(message):
         keyboard.add(telebot.types.KeyboardButton('все категории'))
         keyboard.add(telebot.types.KeyboardButton('указать категории'))
         keyboard.add(telebot.types.KeyboardButton('отменить действие'))
-        bot.send_message(message.chat.id, 'выбери категории', reply_markup=keyboard)
+        bot.send_message(message.chat.id, 'Выбери категории', reply_markup=keyboard)
     else:
         keyboard = telebot.types.ReplyKeyboardMarkup(row_width=1, one_time_keyboard=True, resize_keyboard=True)
 
         error_str = ''
         if not users_data.tmp_table[s_id]['accounts']:
-            error_str = 'указано слишком мало счетов'
+            error_str = 'Указано слишком мало счетов'
 
         if non_def != '':
             if error_str != '':
-                error_str += ' и '
+                error_str += ' и не удалось определить следующие счета:\n' + non_def
             else:
                 keyboard.add(telebot.types.KeyboardButton('все равно получить аналитику'))
-            error_str += 'не удалось определить следующие категории:\n' + non_def
+                error_str += 'Не удалось определить следующие категории:\n' + non_def
 
         keyboard.add(telebot.types.KeyboardButton('написать счета заново'))
         keyboard.add(telebot.types.KeyboardButton('отменить действие'))
         users_data.table[s_id]['state'] = 19
         users_data.update()
-        bot.send_message(message.chat.id, error_str + '\nвыбери, что ты хочешь сделать', reply_markup=keyboard)
+        bot.send_message(message.chat.id, error_str + '\nВыбери, что ты хочешь сделать', reply_markup=keyboard)
 
 
 @bot.message_handler(func=lambda message:
@@ -739,9 +659,9 @@ def type_accounts_again(message):
         keyboard.add(telebot.types.KeyboardButton('все'))
         keyboard.add(telebot.types.KeyboardButton('указать категории'))
         keyboard.add(telebot.types.KeyboardButton('отменить действие'))
-        bot.send_message(message.chat.id, 'выбери категории', reply_markup=keyboard)
+        bot.send_message(message.chat.id, 'Выбери категории', reply_markup=keyboard)
     else:
-        bot.send_message(message.chat.id, 'некорректные данные')
+        bot.send_message(message.chat.id, wrong_input)
         users_data.table[s_id]['state'] = 2
         users_data.update()
         return
@@ -763,7 +683,7 @@ def add_record_cont(message):
         users_data.update()
         return
     else:
-        bot.send_message(message.chat.id, 'некорректные данные')
+        bot.send_message(message.chat.id, wrong_input)
         users_data.table[s_id]['state'] = 2
         users_data.update()
         return
@@ -780,31 +700,31 @@ def del_record_major(message):
         if users_data.table[s_id]['last_row_expense'] > 3:
             response, date, summa, acc = table_manager.delete_last(users_data.table[s_id], 'expense')
             if response:
-                bot.send_message(message.chat.id, 'Удалил успешно.')
+                bot.send_message(message.chat.id, 'Запись удалена.')
                 update_cur_stat_after_del(users_data.table[s_id], '_expense', -summa,
                                           datetime.strptime(date, '%d.%m.%Y'))
                 if acc in users_data.table[s_id]['accounts'].keys():
                     users_data.table[s_id]['accounts'][acc] += summa
 
             else:
-                bot.send_message(message.chat.id, 'Произошла ошибка, попробуй еще раз.')
+                bot.send_message(message.chat.id, error_occur)
         else:
             bot.send_message(message.chat.id, 'Записей нет.')
     elif message.text == 'удалить запись дохода':
         if users_data.table[s_id]['last_row_income'] > 3:
             response, date, summa, acc = table_manager.delete_last(users_data.table[s_id], 'income')
             if response:
-                bot.send_message(message.chat.id, 'Удалил успешно.')
+                bot.send_message(message.chat.id, 'Запись удалена.')
                 update_cur_stat_after_del(users_data.table[s_id], '_income', summa,
                                           datetime.strptime(date, '%d.%m.%Y'))
                 if acc in users_data.table[s_id]['accounts'].keys():
                     users_data.table[s_id]['accounts'][acc] -= summa
             else:
-                bot.send_message(message.chat.id, 'Произошла ошибка, попробуй еще раз.')
+                bot.send_message(message.chat.id, error_occur)
         else:
             bot.send_message(message.chat.id, 'Записей нет.')
     else:
-        bot.send_message(message.chat.id, 'некорректные данные')
+        bot.send_message(message.chat.id, wrong_input)
 
     users_data.table[s_id]['state'] = 2
     users_data.update()

@@ -5,4 +5,4 @@ pyTelegramBotAPI
 pandas
 matplotlib
 numpy
-thefuzz
+thefuzz[speedup]

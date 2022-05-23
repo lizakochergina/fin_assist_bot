@@ -15,10 +15,14 @@ def get_absolute(pct, total):
 
 
 def count_distrib(ss_id, user):
-    df = pd.read_csv(ss_id + '.csv', header=0, names=col_names, skiprows=1, dtype=col_types,
-                     parse_dates=['date_out', 'date_in'], dayfirst=True)
+    try:
+        df = pd.read_csv(ss_id + '.csv', header=0, names=col_names, skiprows=1, decimal=',', dtype=col_types,
+                         parse_dates=['date_out', 'date_in'], dayfirst=True)
+    except BaseException as e:
+        print(e)
+        return ''
     begin, end = df['date_out'].searchsorted([user['start_date'], user['end_date'] + timedelta(days=1)])
-    df = df.drop(index=np.arange(begin)).drop(index=np.arange(end, df.count()[0]))
+    df = df.drop(index=list(range(end, len(df)))).drop(index=list(range(begin)))
 
     if user['accounts']:
         df = df.loc[~df['acc_out'].isin(user['accounts'])]
@@ -27,6 +31,7 @@ def count_distrib(ss_id, user):
     total = 0
     res_str = ''
     k = 0
+
     for target_category in user['global_targets']:
         summa = sum(df.loc[df['categ_out'].str.startswith(target_category)]['sum_out'])
         total += summa
@@ -47,10 +52,10 @@ def count_distrib(ss_id, user):
                 res_str += target_category + ' ' + "{:.2f}".format(summa) + '\n'
                 targets[target_category] = summa
 
-    res_str += '<b>total</b> ' + "{:.2f}".format(total)
+    res_str += '<b>всего</b> ' + "{:.2f}".format(total)
 
     if not targets:
-        res_str = 'нет трат по по заданным категориям и периоду'
+        res_str = 'Нет трат по по заданным категориям и периоду'
 
     colors = plt.get_cmap('Paired')(np.arange(k))
     fig, ax = plt.subplots()
@@ -64,18 +69,25 @@ def count_distrib(ss_id, user):
 
 
 def count_dynamic(ss_id, user):
-    df = pd.read_csv(ss_id + '.csv', header=0, names=col_names, skiprows=1, dtype=col_types,
-                     parse_dates=['date_out', 'date_in'], dayfirst=True)
+    try:
+        df = pd.read_csv(ss_id + '.csv', header=0, names=col_names, skiprows=1, decimal=',', dtype=col_types,
+                         parse_dates=['date_out', 'date_in'], dayfirst=True)
+    except BaseException as e:
+        print(e)
+        return ''
+
     begin, end = df['date_out'].searchsorted([user['start_date'], user['end_date'] + timedelta(days=1)])
-    df = df.drop(index=np.arange(begin)).drop(index=np.arange(end, df.count()[0]))
+    df = df.drop(index=list(range(end, len(df)))).drop(index=list(range(begin)))
 
     if user['accounts']:
         df = df.loc[~df['acc_out'].isin(user['accounts'])]
 
     if user['full_targets']:
+        print(df)
+        print(df['sum_out'])
         total = sum(df['sum_out'])
         if total == 0:
-            return 'нет трат по по заданным категориям и периоду '
+            return 'Нет трат по по заданным категориям и периоду '
         df = df.groupby(['date_out'], as_index=False)['sum_out'].sum().set_index('date_out')
         plot = df['sum_out'].plot(color='cornflowerblue', label='все траты',
                                   title='динамика трат за ' + user['start_date'].strftime('%d.%m.%Y') + ' - ' +
@@ -86,7 +98,8 @@ def count_dynamic(ss_id, user):
         plt.ylabel('сумма')
         fig.savefig(ss_id + '.png', bbox_inches='tight')
         plt.clf()
-        return '<b>total</b> ' + "{:.2f}".format(total)
+        print(total)
+        return '<b>всего</b> ' + "{:.2f}".format(total)
     else:
         ax = None
         for target in user['global_targets']:
@@ -109,9 +122,9 @@ def count_dynamic(ss_id, user):
                     df.loc[df['categ_out'] == target]['sum_out'].plot(ax=ax, label=target)
 
         if total == 0:
-            return 'нет трат по по заданным категориям и периоду'
+            return 'Нет трат по по заданным категориям и периоду'
 
-        res_str += '<b>total</b> ' + str(total)
+        res_str += '<b>всего</b> ' + str(total)
         plt.legend(title="категории", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
         plt.xlabel('даты')
         plt.ylabel('сумма')
