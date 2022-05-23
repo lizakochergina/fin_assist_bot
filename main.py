@@ -751,7 +751,7 @@ def del_record_major(message):
             response, date, summa, acc = table_manager.delete_last(users_data.table[s_id], 'expense')
             if response:
                 bot.send_message(message.chat.id, 'Запись удалена.')
-                update_cur_stat_after_del(users_data.table[s_id], '_expense', -summa,
+                update_cur_stat_after_del(users_data.table[s_id], '_expense', summa,
                                           datetime.strptime(date, '%d.%m.%Y'))
                 if acc in users_data.table[s_id]['accounts'].keys():
                     users_data.table[s_id]['accounts'][acc] += summa
