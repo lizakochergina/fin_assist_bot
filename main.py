@@ -175,7 +175,8 @@ def getting_email(message):
         created = table_manager.create_table(users_data.table[s_id])
         if created:
             bot.send_message(message.chat.id, 'Таблица готова\n' + 'https://docs.google.com/spreadsheets/d/' +
-                             users_data.table[s_id]['spreadsheet_id'] + '\nДалее необходимо настроить категории и счета.' +
+                             users_data.table[s_id]['spreadsheet_id'] +
+                             '\nДалее необходимо настроить категории и счета.' +
                              'Прочитай, пожалуйста, инструкцию https://telegra.ph/finance-bot-05-15')
             users_data.table[s_id]['state'] = 2
         else:
