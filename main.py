@@ -2,7 +2,7 @@ import os
 import telebot
 from datetime import datetime
 from helpers import UserData, TableManager, callback_funcs, format_expense, update_cur_stat, add_new_record, \
-    update_cur_stat_after_del
+    update_cur_stat_after_del, parse_new_categories, parse_new_accounts
 
 bot = telebot.TeleBot(os.getenv('TELEGRAM_TOKEN'), parse_mode=None)
 users_data = UserData()
@@ -158,7 +158,6 @@ def accounts(message):
 def test_callback(call):
     s_id = str(call.message.chat.id)
     callback_funcs[call.data](call.message.chat.id, users_data.table[s_id], bot)
-    bot.answer_callback_query(call.message.chat.id, text='answered callback ' + s_id)
     users_data.update()
 
 
@@ -229,21 +228,42 @@ def adding_category(message):
     else:
         major_category = '_in'
 
-    items = message.text.split(';')
-    for item in items:
-        k = item.find('-')
-        if k != -1:
-            cur_category = item[:k].strip(' ')
-            key_words = item[k + 1:].split(',')
+    some_err, new_categories = parse_new_categories(message.text)
+    if some_err:
+        bot.send_message(message.chat.id, wrong_input)
+        users_data.table[s_id]['state'] = 2
+        users_data.update()
+        return
+
+    already_exist = ''
+    for cur_category in new_categories.keys():
+        if new_categories[cur_category]:
+            if cur_category in users_data.table[s_id]['key_words' + major_category].keys():
+                already_exist += cur_category + '\n'
+                continue
+
             if cur_category not in users_data.table[s_id]['categories' + major_category].keys():
                 users_data.table[s_id]['categories' + major_category][cur_category] = []
-            for key_word in key_words:
-                users_data.table[s_id]['categories' + major_category][cur_category].append(key_word.strip(' '))
-                users_data.table[s_id]['key_words' + major_category][key_word.strip(' ')] = cur_category
+
+            for key_word in new_categories[cur_category]:
+                if key_word not in users_data.table[s_id]['key_words' + major_category].keys(
+                ) and key_word not in users_data.table[s_id]['categories' + major_category].keys():
+                    users_data.table[s_id]['categories' + major_category][cur_category].append(key_word.strip(' '))
+                    users_data.table[s_id]['key_words' + major_category][key_word.strip(' ')] = cur_category
+                else:
+                    already_exist += key_word + '\n'
+                    continue
         else:
-            cur_category = item.strip()
-            if cur_category not in users_data.table[s_id]['categories' + major_category].keys():
+            if cur_category not in users_data.table[s_id]['categories' + major_category].keys(
+            ) and cur_category not in users_data.table[s_id]['key_words' + major_category].keys():
                 users_data.table[s_id]['categories' + major_category][cur_category] = []
+            else:
+                already_exist += cur_category + '\n'
+                continue
+
+    if already_exist != '':
+        bot.send_message(message.chat.id, 'Следующие категории и ключевые слова уже используются:\n' + already_exist +
+                         '\nОстальные категории добавлены успешно.')
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
@@ -288,10 +308,23 @@ def deleting_category(message):
 def setting_main_acc(message):
     s_id = str(message.chat.id)
     acc = message.text.strip()
+    if acc == '':
+        users_data.table[s_id]['state'] = 2
+        users_data.update()
+        bot.send_message(message.chat.id, wrong_input)
+        return
+
     if acc not in users_data.table[s_id]['accounts'].keys():
         items = message.text.split()
-        balance = items[-1]
+        balance = items[-1].strip()
         new_acc = message.text[:-len(balance)].strip()
+
+        if balance == '' or acc == '':
+            users_data.table[s_id]['state'] = 2
+            users_data.update()
+            bot.send_message(message.chat.id, wrong_input)
+            return
+
         try:
             users_data.table[s_id]['accounts'][new_acc] = float(balance)
             users_data.table[s_id]['main_acc'] = new_acc
@@ -311,19 +344,37 @@ def setting_main_acc(message):
                      users_data.table[str(message.chat.id)]['state'] == 6)
 def adding_acc(message):
     s_id = str(message.chat.id)
-    undef = ''
-    items = message.text.split(',')
-    for item in items:
-        balance = item.split()[-1].strip()
-        acc = item[:-len(balance)].strip()
+    some_err, new_accs = parse_new_accounts(message.text)
+    if some_err:
+        bot.send_message(message.chat.id, wrong_input)
+        users_data.table[s_id]['state'] = 2
+        users_data.update()
+        return
+
+    already_exist = ''
+    cast_err = ''
+    for acc in new_accs.keys():
+        if acc in users_data.table[s_id]['accounts'].keys():
+            already_exist += acc + '\n'
+            continue
+
+        balance = new_accs[acc]
+
         try:
             users_data.table[s_id]['accounts'][acc] = float(balance)
         except ValueError:
             print("def adding_acc, can't cast balance as " + balance)
-            undef += acc + '\n'
+            cast_err += acc + '\n'
 
-    if undef != '':
-        bot.send_message(message.chat.id, 'Не удалось установить следующие счета:\n' + undef)
+    res_str = ''
+    if cast_err != '':
+        res_str += 'При добавлении следующих счетов произошла ошибка:\n' + cast_err + '\n'
+
+    if already_exist != '':
+        res_str += 'Следующие счета уже установлены:\n' + already_exist + '\n'
+
+    if res_str != '':
+        bot.send_message(message.chat.id, res_str + 'Остальные счета были установлены успешно.')
 
     users_data.table[s_id]['state'] = 2
     users_data.update()

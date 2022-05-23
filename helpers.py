@@ -212,12 +212,13 @@ class TableManager:
             print(e)
             return False
 
+        user['spreadsheet_id'] = sheet["spreadsheetId"]
+        user['sheet_link'] = sheet["spreadsheetUrl"]
+
         response = self.first_fill(user['spreadsheet_id'])
         if not response:
             return False
 
-        user['spreadsheet_id'] = sheet["spreadsheetId"]
-        user['sheet_link'] = sheet["spreadsheetUrl"]
         try:
             self.drive_service.permissions().create(
                 fileId=user['spreadsheet_id'],
@@ -401,7 +402,8 @@ def del_categ(chat_id, user, bot):
     user['state'] = 4
     bot.send_message(chat_id, 'Чтобы удалить категорию категорию или ключевое слово из раздела доходов, ' +
                      'напиши эти позиции через запятую.\n' + 'Чтобы удалить категорию или ключевое ' +
-                     'слово из раздела расходов, напиши перед категорией знак <b>+</b>', parse_mode='HTML')
+                     'слово из раздела расходов, напиши перед категорией знак <b>+</b>\n' +
+                     'Например, +зарплата.', parse_mode='HTML')
 
 
 def watch_acc(chat_id, user, bot):
@@ -656,6 +658,66 @@ def add_new_record(chat_id, user, bot, table_manager, income, summa, category, a
                              "\nсчет: " + account + "\nкомментарий: " + comment)
         else:
             bot.send_message(chat_id, 'Запись добавлена успешно.')
+
+
+def parse_new_categories(message):
+    new_categories = {}
+    some_err = False
+    items = message.split(';')
+    for item in items:
+        if item == '':
+            continue
+
+        k = item.find('-')
+        if k != -1:
+            cur_category = item[:k].strip(' ')
+            key_words = item[k + 1:].split(',')
+
+            if cur_category == '' or not key_words:
+                some_err = True
+                break
+
+            if cur_category not in new_categories.keys():
+                new_categories[cur_category] = []
+
+            for key_word in key_words:
+                cur_key_word = key_word.strip()
+                if cur_key_word == '':
+                    some_err = True
+                    break
+                new_categories[cur_category].append(cur_key_word)
+        else:
+            cur_category = item.strip()
+
+            if cur_category == '':
+                some_err = True
+                break
+
+            if cur_category not in new_categories.keys():
+                new_categories[cur_category] = []
+
+    return some_err, new_categories
+
+
+def parse_new_accounts(message):
+    items = message.split(',')
+    new_accs = {}
+    some_err = False
+    for item in items:
+        if len(item.split()) < 2:
+            some_err = True
+            break
+
+        balance = item.split()[-1].strip()
+        acc = item[:-len(balance)].strip()
+
+        if balance == '' or acc == '':
+            some_err = True
+            break
+
+        new_accs[acc] = balance
+
+    return some_err, new_accs
 
 
 callback_funcs = {'watch_categ': watch_categ, 'add_categ_out': add_categ_out, 'add_categ_in': add_categ_in,
