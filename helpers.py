@@ -567,13 +567,13 @@ def update_cur_stat(user, kind, expense, today):
 
 def update_cur_stat_after_del(user, kind, summa, today):
     if today.day == user['day'] and today.month == user['month'] and today.year == user['year']:
-        user['today' + kind] += summa
-        user['cur_month' + kind] += summa
+        user['today' + kind] -= summa
+        user['cur_month' + kind] -= summa
     elif today.month == user['month'] and today.year == user['year']:
-        user['cur_month' + kind] += summa
+        user['cur_month' + kind] -= summa
     elif (today.month == 12 and user['month'] == 1 and today.year + 1 == user['year']) or (
             today.month + 1 == user['month'] and today.year == user['year']):
-        user['last_month' + kind] += summa
+        user['last_month' + kind] -= summa
 
 
 def cancel(chat_id, user, bot):

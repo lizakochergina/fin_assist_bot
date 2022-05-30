@@ -9,6 +9,7 @@ users_data = UserData()
 table_manager = TableManager()
 wrong_input = 'Некорректые данные. Попробуй начать заново или воспользуйся командой /help.'
 error_occur = 'Произошла ошибка. Попробуй начать заново или воспользуйся командой /help.'
+success = 'Действие выполнено успешно.'
 
 
 @bot.message_handler(commands=['start'])
@@ -264,6 +265,8 @@ def adding_category(message):
     if already_exist != '':
         bot.send_message(message.chat.id, 'Следующие категории и ключевые слова уже используются:\n' + already_exist +
                          '\nОстальные категории добавлены успешно.')
+    else:
+        bot.send_message(message.chat.id, success)
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
@@ -297,6 +300,8 @@ def deleting_category(message):
 
     if non_del != '':
         bot.send_message(message.chat.id, 'Не удалось найти и удалить следующие категории:\n' + non_del)
+    else:
+        bot.send_message(message.chat.id, success)
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
@@ -335,6 +340,7 @@ def setting_main_acc(message):
     else:
         users_data.table[s_id]['main_acc'] = acc
 
+    bot.send_message(message.chat.id, success)
     users_data.table[s_id]['state'] = 2
     users_data.update()
 
@@ -375,6 +381,8 @@ def adding_acc(message):
 
     if res_str != '':
         bot.send_message(message.chat.id, res_str + 'Остальные счета были установлены успешно.')
+    else:
+        bot.send_message(message.chat.id, success)
 
     users_data.table[s_id]['state'] = 2
     users_data.update()
@@ -397,8 +405,12 @@ def deleting_acc(message):
             bot.send_message(message.chat.id,
                              'Ты удалил основной счет. Необходимо установить новый основной счет')
             callback_funcs['set_main_acc'](message.chat.id, users_data.table[s_id], bot)
+            users_data.table[s_id]['state'] = 2
+        else:
+            bot.send_message(message.chat.id, success)
+            users_data.table[s_id]['state'] = 2
+            users_data.update()
 
-        users_data.table[s_id]['state'] = 2
     else:
         callback_funcs['cancel'](message.chat.id, users_data.table[s_id], bot)
 
@@ -751,7 +763,7 @@ def del_record_major(message):
             response, date, summa, acc = table_manager.delete_last(users_data.table[s_id], 'expense')
             if response:
                 bot.send_message(message.chat.id, 'Запись удалена.')
-                update_cur_stat_after_del(users_data.table[s_id], '_expense', -summa,
+                update_cur_stat_after_del(users_data.table[s_id], '_expense', summa,
                                           datetime.strptime(date, '%d.%m.%Y'))
                 if acc in users_data.table[s_id]['accounts'].keys():
                     users_data.table[s_id]['accounts'][acc] += summa
